@@ -47,6 +47,7 @@ executables:
     dependencies:
     - battlegrounds
     - mtl == 2.3.1
+    - containers == 0.6.7
 
 tests:
   battlegrounds-test:
