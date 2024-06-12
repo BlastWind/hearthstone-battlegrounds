@@ -1,6 +1,9 @@
-module Model (GameState) where
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+module Model (GameState, PlayerState(..), Event(..), EventHandler(..)) where
 import Control.Monad.State.Lazy (State)
 import Data.Map (Map, empty)
+import Data.UUID (UUID)
 {- 
 Design Philosophy: 
 The internals of battlegrounds can be modelled as an algebra on GameState.
@@ -12,15 +15,18 @@ data Tribe = Quilboar | Pirate | Mech | Elemental | Dragon | Naga | Undead | Bea
 -- ##### END:   Enums #####
 
 data Card = Card { 
+    cardId :: UUID,
     cardName :: CardName, 
     tier :: TavernTier, 
     tribe :: Tribe,
     attack :: Attack, 
     health :: Health, 
-    battlecry :: GameState -> GameState, 
-    deathrattle :: GameState -> GameState,
-    onSell :: GameState -> GameState,
-    onBuy  :: GameState -> GameState
+    battlecry :: PlayerState -> PlayerState, 
+    deathrattle :: PlayerState -> PlayerState,
+    onSell :: PlayerState -> PlayerState,
+    onBuy  :: PlayerState -> PlayerState,
+    startOfTurn :: PlayerState -> PlayerState,
+    endOfTurn :: PlayerState -> PlayerState
     -- counter :: State Int Int -- for seafarer, malchezaar, chimera, etc.
 
     -- Some cards have very special effects when a tangential action occurs
@@ -31,7 +37,7 @@ data Card = Card {
     -- In combat, chimera, skyblazer can buff minions permanently
 }
 
-gainGold :: Int -> (GameState -> GameState)
+gainGold :: Int -> (PlayerState -> PlayerState)
 gainGold = undefined
 -- gainGold i gs  = GameState { ...gs, gold = gold + i }
 
@@ -49,32 +55,41 @@ peggy = Card {
 
 newtype Attack = Attack Int
 newtype Health = Health Int
-newtype UpgradeCost = UpgradeCost Int
+newtype TierUpCost = TierUpCost Int deriving (Num)
 newtype TavernTier = TavernTier Int
-newtype Gold = Gold Int
+newtype Gold = Gold Int deriving (Num)
 newtype Hand = Hand [Card]
 newtype Shop = Shop [Card]
 newtype Board = Board [Card]
 newtype PlayerHP = PlayerHP Int
 newtype Turn = Turn Int -- What turn are we on?
 newtype UserName = UserName String
+newtype Pool = Pool (Map CardName Int)
 
 data GameState = GameState { 
     turn :: Turn,
-    players :: Map UserName PlayerState
+    playerStates :: Map UserName PlayerState,
+    sharedPool :: Map CardName Int
 }
 
 data PlayerState = PlayerState {
-    upgradeCost :: UpgradeCost, 
-    tavernTier :: TavernTier, 
+    -- START: Obvious Properties
+    tierUpCost :: Integer, 
+    tavernTier :: Integer, 
     playerHP :: PlayerHP, 
     hand :: Hand, 
     shop :: Shop, 
     board :: Board, 
-    curGold :: Gold,
-    maxGold :: Gold,
-    -- implementational
+    curGold :: Integer,
+    maxGold :: Integer,
+    -- END: Obvious Properties
+
+    -- START: Inobvious properties or ones for implementational purposes (as opposed for pure battleground rules)
+    -- Why is rollCosts an list of effects? Why isn't it encoded within `roll` and simply subtract 1 gold?
+    -- This is because of cards like Malchezaar and Recycling Wraith.
+    rollCosts :: [PlayerState -> PlayerState],
     eventHandler :: EventHandler
+    -- END: Inobvious or for implementational purposes
 }
 
 initialGameState :: GameState
@@ -89,12 +104,13 @@ data Event
     | Buy
     | Reroll
     | Freeze
-    | Upgrade
+    | TierUp
+    deriving (Eq, Ord) -- Ord instance is just ease of Data.Map integration.
 
 
-type EventHandler = Map Event [GameState -> GameState]
+type EventHandler = Map Event [PlayerState -> PlayerState]
 
 initialHandler :: EventHandler
-initialHandler = empty
+initialHandler =  empty
 
-game = until onePlayerAlive (combatPhase . shopPhase) initialGameState
+-- game = until onePlayerAlive (combatPhase . shopPhase) initialGameState
