@@ -1,116 +1,81 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-module Model (GameState, PlayerState(..), Event(..), EventHandler(..)) where
-import Control.Monad.State.Lazy (State)
-import Data.Map (Map, empty)
+module Model (module Model) where
+
+import Control.Lens
+import Control.Lens.TH
+import Data.Map (Map)
 import Data.UUID (UUID)
-{- 
-Design Philosophy: 
+import System.Random (StdGen)
+
+{-
+Design Philosophy:
 The internals of battlegrounds can be modelled as an algebra on GameState.
 -}
 
--- ##### BEGIN: Enums ##### 
-data CardName = AnnoyOTron | BackStageSecurity | CordPuller | DeckSwabbie | DeepSeaAngler | GlimGuardian | HarmlessBonehead | Manasaber | Peggy
-data Tribe = Quilboar | Pirate | Mech | Elemental | Dragon | Naga | Undead | Beast
--- ##### END:   Enums #####
+type Attack = Int
 
-data Card = Card { 
-    cardId :: UUID,
-    cardName :: CardName, 
-    tier :: TavernTier, 
-    tribe :: Tribe,
-    attack :: Attack, 
-    health :: Health, 
-    battlecry :: PlayerState -> PlayerState, 
-    deathrattle :: PlayerState -> PlayerState,
-    onSell :: PlayerState -> PlayerState,
-    onBuy  :: PlayerState -> PlayerState,
-    startOfTurn :: PlayerState -> PlayerState,
-    endOfTurn :: PlayerState -> PlayerState
-    -- counter :: State Int Int -- for seafarer, malchezaar, chimera, etc.
+type Health = Int
 
-    -- Some cards have very special effects when a tangential action occurs
-    -- Examples: 
-    -- Peggy buffs minion when any card is added to hand
-    -- Swampstriker is buffed when murloc is player
-    -- Seafarer, Malchezaar, Bazaar Dealer needs a counter for its effects
-    -- In combat, chimera, skyblazer can buff minions permanently
+type TierUpCost = Int
+
+type TavernTier = Int
+
+type CardCost = Int
+
+data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo
+
+data Card = Card
+  { _cardName :: CardName,
+    _cardTier :: TavernTier,
+    _baseCost :: CardCost,
+    _attack :: Attack,
+    _health :: Health
+  }
+
+data CardInstance = CardInstance
+  { _cardId :: UUID,
+    _card :: Card
+  }
+
+$(makeLenses ''Card)
+
+type Gold = Int
+
+type Hand = [CardInstance]
+
+type Shop = [CardInstance]
+
+type Board = [CardInstance]
+
+type PlayerHP = Int
+
+type Turn = Int -- What turn are we on?
+
+type UserName = String
+
+data Phase = HeroSelect | Blank | Recruit | Combat
+
+data GameState = GameState
+  { playerStates :: Map UserName PlayerState,
+    turn :: Turn
+  }
+
+data PlayerState = PlayerState
+  { tier :: TavernTier,
+    maxGold :: Gold,
+    curGold :: Gold,
+    tierUpCost :: Gold,
+    shop :: Shop,
+    board :: Board,
+    hand :: Hand,
+    phase :: Phase,
+    frozen :: Bool,
+    hp :: Health
+  }
+
+
+data Env = Env {
+  gen :: StdGen
 }
-
-gainGold :: Int -> (PlayerState -> PlayerState)
-gainGold = undefined
--- gainGold i gs  = GameState { ...gs, gold = gold + i }
-
-
-peggy :: Card
-peggy = Card {
-    cardName = Peggy,
-    tier = TavernTier 4,
-    attack = Attack 4,
-    health = Health 2,
-    battlecry = id,
-    deathrattle = id,
-    onSell = gainGold 1
-}
-
-newtype Attack = Attack Int
-newtype Health = Health Int
-newtype TierUpCost = TierUpCost Int deriving (Num)
-newtype TavernTier = TavernTier Int
-newtype Gold = Gold Int deriving (Num)
-newtype Hand = Hand [Card]
-newtype Shop = Shop [Card]
-newtype Board = Board [Card]
-newtype PlayerHP = PlayerHP Int
-newtype Turn = Turn Int -- What turn are we on?
-newtype UserName = UserName String
-newtype Pool = Pool (Map CardName Int)
-
-data GameState = GameState { 
-    turn :: Turn,
-    playerStates :: Map UserName PlayerState,
-    sharedPool :: Map CardName Int
-}
-
-data PlayerState = PlayerState {
-    -- START: Obvious Properties
-    tierUpCost :: Integer, 
-    tavernTier :: Integer, 
-    playerHP :: PlayerHP, 
-    hand :: Hand, 
-    shop :: Shop, 
-    board :: Board, 
-    curGold :: Integer,
-    maxGold :: Integer,
-    -- END: Obvious Properties
-
-    -- START: Inobvious properties or ones for implementational purposes (as opposed for pure battleground rules)
-    -- Why is rollCosts an list of effects? Why isn't it encoded within `roll` and simply subtract 1 gold?
-    -- This is because of cards like Malchezaar and Recycling Wraith.
-    rollCosts :: [PlayerState -> PlayerState],
-    eventHandler :: EventHandler
-    -- END: Inobvious or for implementational purposes
-}
-
-initialGameState :: GameState
-initialGameState = undefined
-
-
-data Event
-    = HealthChange
-    | CardAdded
-    | Refresh
-    | Sell
-    | Buy
-    | Reroll
-    | Freeze
-    | TierUp
-    deriving (Eq, Ord) -- Ord instance is just ease of Data.Map integration.
-
-
-type EventHandler = Map Event [PlayerState -> PlayerState]
-
-initialHandler :: EventHandler
-initialHandler =  empty
-
--- game = until onePlayerAlive (combatPhase . shopPhase) initialGameState
