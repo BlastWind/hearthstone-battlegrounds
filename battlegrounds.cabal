@@ -25,7 +25,12 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Card
+      Controller
+      Logic
+      Model
+      View.Brick
+      View.Terminal
   other-modules:
       Paths_battlegrounds
   autogen-modules:
@@ -34,31 +39,41 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
-  default-language: Haskell2010
-
-executable battlegrounds-exe
-  main-is: Main.hs
-  other-modules:
-      Card
-      Logic
-      Model
-      View
-      Paths_battlegrounds
-  autogen-modules:
-      Paths_battlegrounds
-  hs-source-dirs:
-      app
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
       MonadRandom
     , base >=4.7 && <5
-    , battlegrounds
     , containers ==0.6.7
     , lens
     , mtl ==2.3.1
     , random ==1.2.1.2
     , uuid ==1.3.15
+  default-language: Haskell2010
+
+executable battlegrounds-brick
+  main-is: Main.hs
+  other-modules:
+      Paths_battlegrounds
+  autogen-modules:
+      Paths_battlegrounds
+  hs-source-dirs:
+      app/Brick
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , battlegrounds
+  default-language: Haskell2010
+
+executable battlegrounds-terminal
+  main-is: Main.hs
+  other-modules:
+      Paths_battlegrounds
+  autogen-modules:
+      Paths_battlegrounds
+  hs-source-dirs:
+      app/Terminal
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , battlegrounds
   default-language: Haskell2010
 
 test-suite battlegrounds-test
