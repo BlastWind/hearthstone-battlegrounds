@@ -3,7 +3,7 @@
 
 module Model (module Model) where
 
-import Control.Lens
+import Control.Lens hiding (Index)
 import Control.Lens.TH
 import Data.Map (Map)
 import Data.UUID (UUID)
@@ -72,10 +72,15 @@ data PlayerState = PlayerState
     hand :: Hand,
     phase :: Phase,
     frozen :: Bool,
-    hp :: Health
+    hp :: Health,
+    alive :: Bool
   }
 
 
 data Env = Env {
   gen :: StdGen
 }
+
+type Index = Int
+
+data Action = Buy Index | Sell Index | Play Index | Help | StartGame | EndTurn | Error String
