@@ -42,6 +42,7 @@ library:
   - lens
   - random == 1.2.1.2
   - MonadRandom
+  - parsec
 
 executables:
   battlegrounds-terminal:
