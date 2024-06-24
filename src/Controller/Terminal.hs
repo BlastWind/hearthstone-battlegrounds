@@ -1,4 +1,4 @@
-module Controller.Terminal where
+module Controller.Terminal (module Controller.Terminal) where
 
 import Card (bigDumbo)
 import Control.Monad.IO.Class (liftIO)
@@ -58,9 +58,9 @@ sellArgParser = do
 
 -- END --
 
--- Given GameState, is action actually executable? If not, return the Error Action
+-- TODO: Given GameState, is action actually executable? If not, return the Error Action
 validateAction :: Action -> GameState -> Action
-validateAction action gs = action
+validateAction = const
 
 initGameState :: (MonadRandom m) => m GameState
 initGameState = do
@@ -79,13 +79,16 @@ defPlayerState =
       maxGold = 3,
       curGold = 3,
       tierUpCost = 5,
+      rerollCost = 1,
       shop = [],
       board = [],
       hand = [],
       phase = Blank,
       frozen = False,
       hp = 20,
-      alive = True
+      armor = 0,
+      alive = True,
+      opponentInformation = empty
     }
 
 runGame :: IO ()

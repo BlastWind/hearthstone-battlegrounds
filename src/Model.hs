@@ -18,13 +18,15 @@ type Attack = Int
 
 type Health = Int
 
+type Armor = Int
+
 type TierUpCost = Int
 
 type TavernTier = Int
 
 type CardCost = Int
 
-data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo
+data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo deriving Show
 
 data Card = Card
   { _cardName :: CardName,
@@ -62,6 +64,7 @@ data GameState = GameState
     turn :: Turn
   }
 
+data OppInfo = OppInfo {  oppHP :: Health, oppArmor :: Armor }
 data PlayerState = PlayerState
   { tier :: TavernTier,
     maxGold :: Gold,
@@ -73,7 +76,10 @@ data PlayerState = PlayerState
     phase :: Phase,
     frozen :: Bool,
     hp :: Health,
-    alive :: Bool
+    armor :: Armor,
+    alive :: Bool,
+    rerollCost :: Gold,
+    opponentInformation :: Map UserName OppInfo
   }
 
 
