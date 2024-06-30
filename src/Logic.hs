@@ -3,22 +3,23 @@
 
 module Logic (module Logic) where
 
-import Card (allCards)
+import Card (pool)
 import Control.Lens ((^.))
 import Control.Monad.Random
 import Data.UUID
 import Model
 
-findCard :: UUID -> [CardInstance] -> CardInstance
-findCard cardId instances =
-  case lookup cardId ([(_cardId cardInstance, cardInstance) | cardInstance <- instances]) of
-    Nothing -> error "Unexpected path: findCard should always find the target."
+deterministicLookup :: Eq a => a -> [(a, b)] -> b
+deterministicLookup a xs = 
+  case lookup a xs of
+    Nothing -> error "Unexpected path: deterministicLookup should always find."
     Just c -> c
+
+findCard :: UUID -> [CardInstance] -> CardInstance
+findCard cardId instances = deterministicLookup cardId ([(_cardId cardInstance, cardInstance) | cardInstance <- instances])
 
 removeCard :: UUID -> [CardInstance] -> [CardInstance]
 removeCard cardId = filter (\ci -> _cardId ci /= cardId)
-
--- END --
 
 play :: UUID -> PlayerState -> PlayerState
 play targetId ps = ps {board = board ps ++ [findCard targetId (hand ps)], hand = removeCard targetId (hand ps)}
@@ -72,7 +73,7 @@ randomShop t = do
   return [CardInstance uuid c | c <- shopCards | uuid <- ids]
   where
     availableCards :: [Card]
-    availableCards = filter (\card -> card ^. cardTier <= t) allCards
+    availableCards = filter (\card -> card ^. cardTier <= t) pool
 
 sampleNFromList :: (MonadRandom m) => Int -> [a] -> m [a]
 sampleNFromList _ [] = return []

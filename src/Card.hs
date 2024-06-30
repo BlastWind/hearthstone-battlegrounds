@@ -3,8 +3,8 @@ module Card (module Card) where
 import Model
 
 
-allCards :: [Card]
-allCards = [dummy, dumber, triDummy, dumbo, bigDumbo, kingDumbo]
+pool :: [Card]
+pool = [dummy, dumber, triDummy, dumbo, bigDumbo, kingDumbo]
 
 dummy :: Card
 dummy = Card Dummy 1 3 1 1
@@ -24,3 +24,5 @@ bigDumbo = Card BigDumbo 5 3 5 5
 kingDumbo :: Card
 kingDumbo = Card KingDumbo 6 3 6 6
 
+dummyWithALongNameItKeepsGoing :: Card
+dummyWithALongNameItKeepsGoing = Card DummyWithALongNameItKeepsGoing 1 3 1 1
