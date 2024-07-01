@@ -1,2 +1,5 @@
+import Terminal.View (viewTestGroup)
+import Test.Tasty (defaultMain, testGroup)
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = defaultMain $ testGroup "Unit Tests" [viewTestGroup]

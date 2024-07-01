@@ -1,10 +1,10 @@
 name:                battlegrounds
 version:             0.1.0.0
-github:              "githubuser/battlegrounds"
+github:              "blastwind/battlegrounds"
 license:             BSD-3-Clause
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2024 Author name here"
+author:              "Andrew Chen"
+maintainer:          "andrewchen14250@gmail.com"
+copyright:           "2024 Andrew Chen"
 
 extra-source-files:
 - README.md
@@ -73,4 +73,8 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - containers == 0.6.7
+    - uuid == 1.3.15
     - battlegrounds
+    - tasty
+    - tasty-hunit

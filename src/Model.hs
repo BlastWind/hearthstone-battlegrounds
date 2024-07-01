@@ -26,7 +26,7 @@ type TavernTier = Int
 
 type CardCost = Int
 
-data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo deriving Show
+data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo | DummyWithALongNameItKeepsGoing deriving Show
 
 data Card = Card
   { _cardName :: CardName,

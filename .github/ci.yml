@@ -1,0 +1,40 @@
+name: Haskell CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Stack
+        uses: actions/setup-haskell@v1
+        with:
+          stack-version: '2.15.5'
+          ghc-version: '9.6.5'
+
+      - name: Cache Stack dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+          # Cache invalidated if package.yaml changes.
+          key: ${{ runner.os }}-stack-${{ hashFiles('package.yaml') }}
+
+      - name: Install dependencies
+        run: stack setup
+
+      - name: Build
+        run: stack build --fast
+
+      - name: Run tests
+        run: stack test
