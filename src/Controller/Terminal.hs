@@ -1,15 +1,15 @@
 module Controller.Terminal (module Controller.Terminal) where
 
 import Card (bigDumbo)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Random (MonadIO, MonadRandom (getRandom))
+import Control.Monad.Random (MonadRandom (getRandom))
 import Data.Map hiding (foldl, map)
 import Model (Action (..), CardInstance (CardInstance), GameState (..), Phase (Blank), PlayerState (..))
 import Text.Parsec hiding (Error)
 import Text.Parsec.String (Parser)
 import Text.Read (readMaybe)
-import View.Terminal (render, helpMenu)
+import View.Terminal (render)
 import Data.Maybe (fromJust)
+import Logic (validateAction, execAction, isGameOver)
 
 -- START: Functions for ingesting terminal input as Action --
 -- Examples:
@@ -58,9 +58,6 @@ sellArgParser = do
 
 -- END --
 
--- TODO: Given GameState, is action actually executable? If not, return the Error Action
-validateAction :: Action -> GameState -> Action
-validateAction = const
 
 initGameState :: (MonadRandom m) => m GameState
 initGameState = do
@@ -115,13 +112,3 @@ runGame = do
             )
             action
 
-execAction :: (MonadIO m) => Action -> GameState -> m GameState
-execAction (Error msg) gs = liftIO (putStrLn msg) >> return gs
-execAction Help gs        = liftIO (putStrLn helpMenu) >> return gs
-execAction _ gs = return gs
-
--- Check if only one player alive
-isGameOver :: GameState -> Bool
-isGameOver gs = playersAlive == 1
-  where
-    playersAlive = foldl (\acc ps -> if alive ps then acc + 1 else acc) 0 (playerStates gs)
