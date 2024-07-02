@@ -41,7 +41,6 @@ render :: PlayerState -> String
 render ps =
   case phase ps of
     Recruit -> renderRecruit ps
-    Blank -> "blank todo"
     HeroSelect -> "heroselect todo"
     Combat -> "combat todo"
 

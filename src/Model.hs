@@ -4,7 +4,6 @@
 module Model (module Model) where
 
 import Control.Lens hiding (Index)
-import Control.Lens.TH
 import Data.Map (Map)
 import Data.UUID (UUID)
 import System.Random (StdGen)
@@ -26,7 +25,7 @@ type TavernTier = Int
 
 type CardCost = Int
 
-data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo | DummyWithALongNameItKeepsGoing deriving Show
+data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo | DummyWithALongNameItKeepsGoing deriving (Show)
 
 data Card = Card
   { _cardName :: CardName,
@@ -57,14 +56,15 @@ type Turn = Int -- What turn are we on?
 
 type UserName = String
 
-data Phase = HeroSelect | Blank | Recruit | Combat
+data Phase = HeroSelect | Recruit | Combat deriving (Eq)
 
 data GameState = GameState
-  { playerStates :: Map UserName PlayerState,
+  { _playerStates :: Map UserName PlayerState,
     turn :: Turn
   }
 
-data OppInfo = OppInfo {  oppHP :: Health, oppArmor :: Armor }
+data OppInfo = OppInfo {oppHP :: Health, oppArmor :: Armor}
+
 data PlayerState = PlayerState
   { tier :: TavernTier,
     maxGold :: Gold,
@@ -82,11 +82,13 @@ data PlayerState = PlayerState
     opponentInformation :: Map UserName OppInfo
   }
 
+$(makeLenses ''GameState)
+$(makeLenses ''PlayerState)
 
-data Env = Env {
-  gen :: StdGen
-}
+data Env = Env
+  { gen :: StdGen
+  }
 
 type Index = Int
 
-data Action = Buy Index | Sell Index | Play Index | Help | StartGame | EndTurn | Error String
+data Action = Buy Index | Sell Index | Play Index | Help | StartGame | EndTurn
