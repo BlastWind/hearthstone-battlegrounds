@@ -72,9 +72,9 @@ renderRecruit gs p =
       ]
   where
     ps = selectPlayer p gs
-    shopCardNames = [(abbrev maxCardNameDisplayLength . show . _cardName . _card) cardInstance | cardInstance <- shop ps]
-    boardCardNames = [(abbrev maxCardNameDisplayLength . show . _cardName . _card) cardInstance | cardInstance <- board ps]
-    handCardNames = [(abbrev maxCardNameDisplayLength . show . _cardName . _card) cardInstance | cardInstance <- hand ps]
+    shopCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- shop ps]
+    boardCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- board ps]
+    handCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- hand ps]
     freezeText = if frozen ps then "Freeze: Yes" else "Freeze: No"
     rerollCostText = "Reroll Cost: " ++ show (rerollCost ps)
     tierUpCostText = "Upgrade Cost: " ++ show (tierUpCost ps)
@@ -103,20 +103,20 @@ helpMenu :: String
 helpMenu =
   intercalate
     "\n"
-    [ "+--------------------------------------------+",
-      "|                  HELP MENU                 |",
-      "+--------------------------------------------+",
-      "| Command         | Description              |",
-      "+--------------------------------------------+",
-      "| buy <n>         | Buy card at index <n>    |",
-      "| b <n>           | Shortcut for buy <n>     |",
-      "| sell <n>        | Sell minion at index <n> |",
-      "| s <n>           | same as sell <n>         |",
-      "| help            | Display this menu        |",
-      "| h               | Shortcut for help        |",
-      "| endturn         | End your turn            |",
-      "| e               | Shortcut for endturn     |",
-      "+--------------------------------------------+",
-      "| Note: number argument <n> starts at 1      |",
-      "+--------------------------------------------+"
+    [ "+-----------------------------------------------------+",
+      "|                      HELP MENU                      |",
+      "+-----------------------------------------------------+",
+      "| Command              | Description                  |",
+      "+-----------------------------------------------------+",
+      "| buy <n> or b <n>     | Buy card at shop pos <n>     |",
+      "| sell <n> or s <n>    | Sell minion at board pos <n> |",
+      "| play <n> or p <n>    | Play minion at hand pos <n>  |",       
+      "| refresh or r         | Refresh your tavern          |",
+      "| freeze or f          | Freeze your tavern           |",
+      "| endturn or e         | End your turn                |",
+      "| help or h            | Display this menu            |",
+      "| concede              | Concede!                     |",
+      "+-----------------------------------------------------+",
+      "| Note: <n> is a number that starts at 0              |",
+      "+-----------------------------------------------------+"
     ]

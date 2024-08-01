@@ -1,11 +1,6 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module Model (module Model) where
 
-import Control.Lens hiding (Index)
 import Data.UUID (UUID)
-import System.Random (StdGen)
 
 {-
 Design Philosophy:
@@ -27,19 +22,17 @@ type CardCost = Int
 data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo | DummyWithALongNameItKeepsGoing deriving (Show)
 
 data Card = Card
-  { _cardName :: CardName,
-    _cardTier :: TavernTier,
-    _baseCost :: CardCost,
-    _attack :: Attack,
-    _health :: Health
+  { cardName :: CardName,
+    cardTier :: TavernTier,
+    baseCost :: CardCost,
+    attack :: Attack,
+    health :: Health
   }
 
 data CardInstance = CardInstance
-  { _cardId :: UUID,
-    _card :: Card
+  { cardId :: UUID,
+    card :: Card
   }
-
-$(makeLenses ''Card)
 
 type Gold = Int
 
@@ -59,13 +52,15 @@ data Phase = HeroSelect | Recruit | Combat deriving (Eq)
 
 -- For now, GameState just keeps track of the solo player and one AI.
 data Player = Player | AI
+
 data GameState = GameState
-  { playerState :: PlayerState, 
+  { playerState :: PlayerState,
     aiState :: PlayerState,
     turn :: Turn
   }
 
 data CombatMoves = CombatMoves
+
 data PlayerState = PlayerState
   { tier :: TavernTier,
     maxGold :: Gold,
@@ -83,12 +78,14 @@ data PlayerState = PlayerState
     combatSequence :: ([CombatMoves], Int)
   }
 
-data Env = Env
-  { gen :: StdGen
-  }
-
 type Index = Int
 
-data GameAction = StartGame
-
-data Command = EndTurn | Help | Buy Index | Sell Index | Play Index
+data Command
+  = Buy Index
+  | Sell Index
+  | Play Index
+  | Refresh
+  | Freeze
+  | EndTurn
+  | Help
+  | Concede

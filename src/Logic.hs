@@ -110,7 +110,7 @@ randomShop t = do
   return [CardInstance uuid c | c <- shopCards | uuid <- ids]
   where
     availableCards :: [Card]
-    availableCards = filter (\card -> card._cardTier <= t) pool
+    availableCards = filter (\c -> c.cardTier <= t) pool
 
 sampleNFromList :: (MonadRandom m) => Int -> [a] -> m [a]
 sampleNFromList _ [] = return []
@@ -129,8 +129,7 @@ play ind ps = ps {board = ps.board ++ [findCard ind ps.hand], hand = remove ind 
 buy :: Index -> PlayerState -> PlayerState
 buy ind ps =
   let cardInstance = findCard ind ps.shop
-      card = cardInstance._card
-      cost = card._baseCost
+      cost = cardInstance.card.baseCost
       moneyLeft = ps.curGold
    in if cost > moneyLeft
         then
