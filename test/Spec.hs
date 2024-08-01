@@ -1,4 +1,4 @@
-import Terminal.View (viewTestGroup)
+import ViewTest (viewTestGroup)
 import Test.Tasty (defaultMain, testGroup)
 
 main :: IO ()

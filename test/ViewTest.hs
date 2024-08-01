@@ -1,15 +1,14 @@
 -- View tests are regressive (ensure that new changes do not inadvertently regress the existing UI).
-module Terminal.View (viewTestGroup) where
+module ViewTest (viewTestGroup) where
 
 import Card
 import Data.List (intercalate)
-import Data.Map (empty, fromList)
 import Data.Maybe (fromJust)
 import Data.UUID (UUID, fromString)
-import Model (CardInstance (..), OppInfo (..), Phase (..), PlayerState (..))
+import Model (CardInstance (..), GameState (..), Phase (..), PlayerState (..), Player (Player))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertEqual, testCase)
-import View.Terminal (render)
+import View (render)
 
 viewTestGroup :: TestTree
 viewTestGroup =
@@ -23,7 +22,7 @@ viewTestGroup =
 testBlankRecruitView :: TestTree
 testBlankRecruitView =
   testCase "Test view of blank shop, board, hand. Other hard coded stats can test stat renderings." $
-    assertEqual "view should be eq" (render blankPlayerState) $
+    assertEqual "view should be eq" (render blankGameState Player) $
       intercalate
         "\n"
         [ "+--------------------------------------------------------------------------------------------------------------------------------------------+",
@@ -39,14 +38,14 @@ testBlankRecruitView =
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
           "| Player:                                                Health: 30 | Armor: 5 | Gold: 7/10                                                  |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Opps HP:                                                                                                                                   |",
+          "| Opps HP:                                                       Tutorial AI: 5 + 0                                                          |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+"
         ]
 
 testRecruitViewWithMaxItems :: TestTree
 testRecruitViewWithMaxItems =
   testCase "Test view of filled shop, board, hand and max opps." $
-    assertEqual "view should be eq" (render maxItemsPlayerState) $
+    assertEqual "view should be eq" (render maxItemsGameState Player) $
       intercalate
         "\n"
         [ "+--------------------------------------------------------------------------------------------------------------------------------------------+",
@@ -63,15 +62,14 @@ testRecruitViewWithMaxItems =
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
           "| Player:                                                Health: 30 | Armor: 5 | Gold: 7/10                                                  |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Opps HP:                                   opp1: 30 + 5 | opp2: 30 + 5 | opp3: 30 + 5 | opp4: 30 + 5                                       |",
-          "|                                                    opp5: 30 + 5 | opp6: 30 + 5 | opp7: 30 + 5                                              |",
+          "| Opps HP:                                                       Tutorial AI: 5 + 0                                                          |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+"
         ]
 
 testRecruitViewWithAbbrevs :: TestTree
 testRecruitViewWithAbbrevs =
   testCase "Test view of filled shop, board, hand and max opps. All names chosen to exceed limit (and hence should be abbreviated)." $
-    assertEqual "view should be eq" (render maxItemsWithAbbrevNamesPlayerState) $
+    assertEqual "view should be eq" (render maxItemsWithAbbrevNamesGameState Player) $
       intercalate
         "\n"
         [ "+--------------------------------------------------------------------------------------------------------------------------------------------+",
@@ -88,8 +86,7 @@ testRecruitViewWithAbbrevs =
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
           "| Player:                                                Health: 30 | Armor: 5 | Gold: 7/10                                                  |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Opps HP:           aVeryLongName..: 15 + 15 | aVeryLongName..: 15 + 15 | aVeryLongName..: 15 + 15 | aVeryLongName..: 15 + 15               |",
-          "|                                  aVeryLongName..: 15 + 15 | aVeryLongName..: 15 + 15 | aVeryLongName..: 15 + 15                            |",
+          "| Opps HP:                                                       Tutorial AI: 5 + 0                                                          |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+"
         ]
 
@@ -109,28 +106,34 @@ blankPlayerState =
       armor = 5,
       curGold = 7,
       maxGold = 10,
-      opponentInformation = empty,
       tier = 5,
       phase = Recruit,
-      alive = True
+      alive = True,
+      combatSequence = ([], 0)
     }
 
-maxItemsPlayerState :: PlayerState
-maxItemsPlayerState =
-  blankPlayerState
-    { shop = [CardInstance dummyUUID dummy, CardInstance dummyUUID dumber, CardInstance dummyUUID triDummy, CardInstance dummyUUID dumbo, CardInstance dummyUUID bigDumbo, CardInstance dummyUUID kingDumbo],
-      board = [CardInstance dummyUUID dummy, CardInstance dummyUUID dumber, CardInstance dummyUUID triDummy, CardInstance dummyUUID dumbo, CardInstance dummyUUID bigDumbo, CardInstance dummyUUID kingDumbo],
-      hand = [CardInstance dummyUUID dummy, CardInstance dummyUUID dumber, CardInstance dummyUUID triDummy, CardInstance dummyUUID dumbo, CardInstance dummyUUID bigDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo],
-      opponentInformation = fromList [("opp1", OppInfo 30 5), ("opp2", OppInfo 30 5), ("opp3", OppInfo 30 5), ("opp4", OppInfo 30 5), ("opp5", OppInfo 30 5), ("opp6", OppInfo 30 5), ("opp7", OppInfo 30 5)]
-    }
+blankAIState :: PlayerState
+blankAIState = blankPlayerState {hp = 5, armor = 0}
 
-maxItemsWithAbbrevNamesPlayerState :: PlayerState
-maxItemsWithAbbrevNamesPlayerState =
-  blankPlayerState
-    { shop = replicate 7 $ CardInstance dummyUUID dummyWithALongNameItKeepsGoing,
-      board = replicate 7 $ CardInstance dummyUUID dummyWithALongNameItKeepsGoing,
-      hand = replicate 10 $ CardInstance dummyUUID dummyWithALongNameItKeepsGoing,
-      opponentInformation = fromList $ [(longOppName ++ show i, OppInfo 15 15) | i <- [1 :: Integer .. 7]]
-    }
+blankGameState :: GameState
+blankGameState = GameState {playerState = blankPlayerState, aiState = blankAIState, turn = 0}
+
+maxItemsGameState :: GameState
+maxItemsGameState = blankGameState {playerState = maxItemsPlayerState}
   where
-    longOppName = "aVeryLongNameBlahBlah"
+    maxItemsPlayerState =
+      blankPlayerState
+        { shop = [CardInstance dummyUUID dummy, CardInstance dummyUUID dumber, CardInstance dummyUUID triDummy, CardInstance dummyUUID dumbo, CardInstance dummyUUID bigDumbo, CardInstance dummyUUID kingDumbo],
+          board = [CardInstance dummyUUID dummy, CardInstance dummyUUID dumber, CardInstance dummyUUID triDummy, CardInstance dummyUUID dumbo, CardInstance dummyUUID bigDumbo, CardInstance dummyUUID kingDumbo],
+          hand = [CardInstance dummyUUID dummy, CardInstance dummyUUID dumber, CardInstance dummyUUID triDummy, CardInstance dummyUUID dumbo, CardInstance dummyUUID bigDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo, CardInstance dummyUUID kingDumbo]
+        }
+
+maxItemsWithAbbrevNamesGameState :: GameState
+maxItemsWithAbbrevNamesGameState = blankGameState {playerState = maxItemsPlayerState}
+  where
+    maxItemsPlayerState =
+      blankPlayerState
+        { shop = replicate 7 $ CardInstance dummyUUID dummyWithALongNameItKeepsGoing,
+          board = replicate 7 $ CardInstance dummyUUID dummyWithALongNameItKeepsGoing,
+          hand = replicate 10 $ CardInstance dummyUUID dummyWithALongNameItKeepsGoing
+        }
