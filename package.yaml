@@ -47,22 +47,14 @@ library:
 executables:
   battlegrounds-terminal:
     main:                Main.hs
-    source-dirs:         exec/Terminal
+    source-dirs:         app
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
     - battlegrounds
-  battlegrounds-brick:
-    main:                Main.hs
-    source-dirs:         exec/Brick
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - battlegrounds
+
 
 tests:
   battlegrounds-test:

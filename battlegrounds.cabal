@@ -26,10 +26,10 @@ source-repository head
 library
   exposed-modules:
       Card
-      Controller.Terminal
+      Controller
       Logic
       Model
-      View.Terminal
+      View
   other-modules:
       Paths_battlegrounds
   autogen-modules:
@@ -48,20 +48,6 @@ library
     , uuid ==1.3.15
   default-language: Haskell2010
 
-executable battlegrounds-brick
-  main-is: Main.hs
-  other-modules:
-      Paths_battlegrounds
-  autogen-modules:
-      Paths_battlegrounds
-  hs-source-dirs:
-      exec/Brick
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      base >=4.7 && <5
-    , battlegrounds
-  default-language: Haskell2010
-
 executable battlegrounds-terminal
   main-is: Main.hs
   other-modules:
@@ -69,7 +55,7 @@ executable battlegrounds-terminal
   autogen-modules:
       Paths_battlegrounds
   hs-source-dirs:
-      exec/Terminal
+      app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

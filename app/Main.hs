@@ -1,5 +1,5 @@
 module Main (main) where
-import Controller.Terminal (runGame)
+import Controller (runGame)
 
 main :: IO ()
 main = runGame

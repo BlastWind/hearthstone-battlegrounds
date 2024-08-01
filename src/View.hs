@@ -1,4 +1,4 @@
-module View.Terminal (render, helpMenu) where
+module View (render, helpMenu) where
 
 import Data.List (intercalate)
 import Data.Map (toList)

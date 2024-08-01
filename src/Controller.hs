@@ -1,4 +1,4 @@
-module Controller.Terminal (module Controller.Terminal) where
+module Controller (module Controller) where
 
 import Card (bigDumbo)
 import Control.Lens
@@ -10,7 +10,7 @@ import Model (Action (..), CardInstance (CardInstance), GameState (..), Phase (H
 import Text.Parsec hiding (Error)
 import Text.Parsec.String (Parser)
 import Text.Read (readMaybe)
-import View.Terminal (render)
+import View (render)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map as Map
 

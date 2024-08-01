@@ -7,7 +7,7 @@ import Card (pool)
 import Control.Lens ((^.))
 import Control.Monad.Random
 import Model
-import View.Terminal (helpMenu)
+import View (helpMenu)
 
 -- START: Functions interfacing with Action. --
 
