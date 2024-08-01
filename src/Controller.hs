@@ -27,8 +27,8 @@ interp s = case parse actionParser "" s of
 -- Parse the full input string
 actionParser :: Parser Command
 actionParser = do
-  cmd <- choice $ map (try . string) ["buy", "b", "sell", "s", "play", "p", "roll", "r", "freeze", "f", "endturn", "e", "help", "h", "concede"]
-  spaces
+  cmd <- choice $ map (try . string) ["buy", "b", "sell", "s", "play", "p", "roll", "r", "tier", "t", "freeze", "f", "endturn", "e", "help", "h", "concede"]
+  spaces -- allows for 0 to many spaces, so "b0", "b 0", "b  0" ... are all valid
   action <- actionArgumentParser cmd
   eof
   return action
@@ -39,6 +39,7 @@ actionArgumentParser cmd
   | cmd `elem` ["buy", "b"] = buyArgParser
   | cmd `elem` ["sell", "s"] = sellArgParser
   | cmd `elem` ["play", "p"] = playArgParser
+  | cmd `elem` ["tier", "t"] = return TierUp
   | cmd `elem` ["roll", "r"] = return Roll
   | cmd `elem` ["freeze", "f"] = return Freeze
   | cmd `elem` ["endturn", "e"] = return EndTurn
@@ -72,7 +73,7 @@ playArgParser = do
 initGameState :: (MonadRandom m) => m GameState
 initGameState = do
   tutorialAIGameState <- tutorialAI
-  return $ GameState {playerState = defPlayerState, aiState = tutorialAIGameState, turn = 0, config = Config { maxBoardSize = 7 }}
+  return $ GameState {playerState = defPlayerState, aiState = tutorialAIGameState, turn = 0, config = Config { maxBoardSize = 7, maxHandSize = 10 }}
 
 tutorialAI :: (MonadRandom m) => m PlayerState
 tutorialAI = do
@@ -83,9 +84,9 @@ defPlayerState :: PlayerState
 defPlayerState =
   PlayerState
     { tier = 1,
-      maxGold = 3,
-      curGold = 3,
-      tierUpCost = 5,
+      maxGold = 2, -- By `enter`ing into the first turn, this becomes 3 as required.
+      curGold = 2,
+      tierUpCost = 6, -- By `enter`ing into the first turn, this becomes 5 as required.
       rerollCost = 1,
       shop = [],
       board = [],
@@ -101,9 +102,9 @@ defPlayerState =
 runGame :: IO ()
 runGame = do
   gs <- initGameState
-  gs' <- enter Recruit gs
+  gs' <- enter Recruit Player gs >>= enter Recruit AI
   _ <- loop (return gs')
-  putStrLn "Game Finished."
+  putStrLn "Game Loop Completed."
   where
     -- Repeat Recruit and Combat until game over
     loop :: (MonadIO m, MonadRandom m) => m GameState -> m GameState
@@ -111,12 +112,14 @@ runGame = do
       gs <- mgs
       if isGameOver gs
         then do
+
+          _ <- liftIO $ putStrLn $ render gs Player -- Render the EndScreen before exit.
           return gs
       else do
         liftIO $ putStrLn $ render gs Player
         input <- liftIO getLine
         result <- either -- Combine two eithers: If first action Left, propogate it. If right, execCommand and return an Either.
-                    (return . Left) 
+                    (return . Left)
                     (\cmd -> execCommand cmd gs Player)
                     (interp input)
         case result of -- Earlier, two eithers were combined together because they should run the same thing on Left.

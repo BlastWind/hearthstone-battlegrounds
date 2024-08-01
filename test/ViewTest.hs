@@ -34,7 +34,7 @@ testBlankRecruitView =
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
           "| Hand:                                                                                                                                      |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Tavern:                                          Upgrade Cost: 5 | Freeze: Yes | Reroll Cost: 2                                            |",
+          "| Tavern:                                     Tier: 1 | Upgrade Cost: 5 | Freeze: No | Reroll Cost: 1                                        |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
           "| Player:                                                Health: 30 | Armor: 5 | Gold: 7/10                                                  |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
@@ -58,7 +58,7 @@ testRecruitViewWithMaxItems =
           "| Hand:                                 Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo | KingDumbo                                 |",
           "|                                                        KingDumbo | KingDumbo | KingDumbo                                                   |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Tavern:                                          Upgrade Cost: 5 | Freeze: Yes | Reroll Cost: 2                                            |",
+          "| Tavern:                                     Tier: 1 | Upgrade Cost: 5 | Freeze: No | Reroll Cost: 1                                        |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
           "| Player:                                                Health: 30 | Armor: 5 | Gold: 7/10                                                  |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
@@ -82,7 +82,7 @@ testRecruitViewWithAbbrevs =
           "| Hand:     DummyWithALon.. | DummyWithALon.. | DummyWithALon.. | DummyWithALon.. | DummyWithALon.. | DummyWithALon.. | DummyWithALon..      |",
           "|                                               DummyWithALon.. | DummyWithALon.. | DummyWithALon..                                          |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Tavern:                                          Upgrade Cost: 5 | Freeze: Yes | Reroll Cost: 2                                            |",
+          "| Tavern:                                     Tier: 1 | Upgrade Cost: 5 | Freeze: No | Reroll Cost: 1                                        |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
           "| Player:                                                Health: 30 | Armor: 5 | Gold: 7/10                                                  |",
           "+--------------------------------------------------------------------------------------------------------------------------------------------+",
@@ -99,14 +99,14 @@ blankPlayerState =
     { shop = [],
       board = [],
       hand = [],
-      frozen = True,
-      rerollCost = 2,
+      frozen = False,
+      rerollCost = 1,
       tierUpCost = 5,
       hp = 30,
       armor = 5,
       curGold = 7,
       maxGold = 10,
-      tier = 5,
+      tier = 1,
       phase = Recruit,
       alive = True,
       combatSequence = ([], 0)
@@ -116,7 +116,7 @@ blankAIState :: PlayerState
 blankAIState = blankPlayerState {hp = 5, armor = 0}
 
 blankGameState :: GameState
-blankGameState = GameState {playerState = blankPlayerState, aiState = blankAIState, config = Config {maxBoardSize = 7}, turn = 0}
+blankGameState = GameState {playerState = blankPlayerState, aiState = blankAIState, config = Config {maxBoardSize = 7, maxHandSize=10}, turn = 0}
 
 maxItemsGameState :: GameState
 maxItemsGameState = blankGameState {playerState = maxItemsPlayerState}

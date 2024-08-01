@@ -48,12 +48,12 @@ type Turn = Int -- What turn are we on?
 
 type UserName = String
 
-data Phase = HeroSelect | Recruit | Combat deriving (Eq)
+data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Eq)
 
 -- For now, GameState just keeps track of the solo player and one AI.
 data Player = Player | AI
 
-newtype Config = Config { maxBoardSize :: Int }
+data Config = Config { maxBoardSize :: Int, maxHandSize :: Int }
 data GameState = GameState
   { playerState :: PlayerState,
     aiState :: PlayerState,
@@ -87,6 +87,7 @@ data Command
   | Sell Index
   | Play Index
   | Roll
+  | TierUp
   | Freeze
   | EndTurn
   | Help

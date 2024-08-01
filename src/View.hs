@@ -42,6 +42,7 @@ render gs p =
     Recruit -> renderRecruit gs p
     HeroSelect -> "heroselect todo"
     Combat -> "combat todo"
+    EndScreen -> if (selectPlayer p gs).alive then "Victory! Ending now." else "You loss. Ending now."
 
 hBorder :: [Char]
 hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"
@@ -63,7 +64,7 @@ renderRecruit gs p =
           then "|           " ++ alignMid maxRowContentWidth (intercalate " | " (drop 7 handCardNames)) ++ "      |"
           else "",
         hBorder,
-        "| Tavern:   " ++ alignMid maxRowContentWidth (intercalate " | " [tierUpCostText, freezeText, rerollCostText]) ++ "      |",
+        "| Tavern:   " ++ alignMid maxRowContentWidth (intercalate " | " [tierText, tierUpCostText, freezeText, rerollCostText]) ++ "      |",
         hBorder,
         "| Player:   " ++ alignMid maxRowContentWidth (intercalate " | " [healthText, armorText, goldText]) ++ "      |",
         hBorder,
@@ -77,7 +78,8 @@ renderRecruit gs p =
     handCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- hand ps]
     freezeText = if frozen ps then "Freeze: Yes" else "Freeze: No"
     rerollCostText = "Reroll Cost: " ++ show (rerollCost ps)
-    tierUpCostText = "Upgrade Cost: " ++ show (tierUpCost ps)
+    tierText = "Tier: " ++ show ps.tier
+    tierUpCostText = "Upgrade Cost: " ++ if ps.tier < 6 then show (tierUpCost ps) else "-"
     healthText = "Health: " ++ show (hp ps)
     armorText = "Armor: " ++ show (armor ps)
     goldText = "Gold: " ++ show (curGold ps) ++ "/" ++ show (maxGold ps)
@@ -110,13 +112,15 @@ helpMenu =
       "+-----------------------------------------------------+",
       "| buy <n> or b <n>     | Buy card at shop pos <n>     |",
       "| sell <n> or s <n>    | Sell minion at board pos <n> |",
-      "| play <n> or p <n>    | Play minion at hand pos <n>  |",       
+      "| play <n> or p <n>    | Play minion at hand pos <n>  |",
       "| roll or r            | Refresh your tavern          |",
+      "| tier or t            | Tier up your tavern          |",
       "| freeze or f          | Freeze your tavern           |",
       "| endturn or e         | End your turn                |",
       "| help or h            | Display this menu            |",
       "| concede              | Concede!                     |",
       "+-----------------------------------------------------+",
-      "| Note: <n> is a number that starts at 0              |",
+      "| Note: <n> is a number that starts at 0.             |",
+      "| There's also no need to have space before <n> arg   |",
       "+-----------------------------------------------------+"
     ]
