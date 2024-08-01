@@ -11,3 +11,8 @@ to issue commands to the server, etc.
 
 Note, server and client will be bidirectionally. Server needs to manage phase timers and ping the client when phase changes.
 So, the client needs to `forkIO` twice for a sending and receiving thread. The server can have one `fork` per client.
+
+### Aug 1, 2024
+Callbacks can be used to implement both in-game logic and game rules. For example, omu's hero power can be implemented via a callback
+to `tierUp`. Conversely, maybe `tierUp` can expand the `randomShopSize` via a callback, as opposed to this being built-in. For now, 
+`randomShop` is directly dependent on `TavernTier`, but maybe that can change.

@@ -3,14 +3,13 @@
 module Controller (module Controller) where
 
 import Card (bigDumbo)
-import Control.Monad.Random (MonadRandom (getRandom))
-import Logic (execCommand, isGameOver, validateCommand, enter)
+import Control.Monad.Random (MonadRandom (getRandom), MonadIO, liftIO)
+import Logic (enter, execCommand, isGameOver)
 import Model
 import Text.Parsec hiding (Error)
 import Text.Parsec.String (Parser)
 import Text.Read (readMaybe)
 import View (render)
-import Control.Monad.IO.Class (liftIO)
 
 -- START: Functions for ingesting terminal input as PlayerAction --
 -- Examples:
@@ -28,7 +27,7 @@ interp s = case parse actionParser "" s of
 -- Parse the full input string
 actionParser :: Parser Command
 actionParser = do
-  cmd <- choice $ map (try . string) ["buy", "b", "sell", "s", "help", "h", "endturn", "e", "play", "p"]
+  cmd <- choice $ map (try . string) ["buy", "b", "sell", "s", "play", "p", "roll", "r", "freeze", "f", "endturn", "e", "help", "h", "concede"]
   spaces
   action <- actionArgumentParser cmd
   eof
@@ -40,8 +39,11 @@ actionArgumentParser cmd
   | cmd `elem` ["buy", "b"] = buyArgParser
   | cmd `elem` ["sell", "s"] = sellArgParser
   | cmd `elem` ["play", "p"] = playArgParser
-  | cmd `elem` ["help", "h"] = return Help
+  | cmd `elem` ["roll", "r"] = return Roll
+  | cmd `elem` ["freeze", "f"] = return Freeze
   | cmd `elem` ["endturn", "e"] = return EndTurn
+  | cmd `elem` ["help", "h"] = return Help
+  | cmd == "concede" = return Concede
   | otherwise = error "Unexpected path: actionArgumentParser should only run if it matched a command."
 
 buyArgParser :: Parser Command
@@ -64,12 +66,13 @@ playArgParser = do
   case readMaybe indStr of
     Just ind -> return $ Play ind
     Nothing -> fail "Play's argument should be a valid number."
+
 -- END --
 
 initGameState :: (MonadRandom m) => m GameState
 initGameState = do
   tutorialAIGameState <- tutorialAI
-  return $ GameState {playerState = defPlayerState, aiState=tutorialAIGameState, turn = 0}
+  return $ GameState {playerState = defPlayerState, aiState = tutorialAIGameState, turn = 0, config = Config { maxBoardSize = 7 }}
 
 tutorialAI :: (MonadRandom m) => m PlayerState
 tutorialAI = do
@@ -99,20 +102,23 @@ runGame :: IO ()
 runGame = do
   gs <- initGameState
   gs' <- enter Recruit gs
-  _ <- loop gs'
+  _ <- loop (return gs')
   putStrLn "Game Finished."
   where
     -- Repeat Recruit and Combat until game over
-    loop gs =
+    loop :: (MonadIO m, MonadRandom m) => m GameState -> m GameState
+    loop mgs = do
+      gs <- mgs
       if isGameOver gs
         then do
           return gs
-        else do
-          putStrLn $ render gs Player
-          input <- getLine
-          case interp input >>= (\c -> validateCommand c gs Player) of
-            Left err -> putStrLn err >> loop gs
-            Right action' -> do
-              gs' <- liftIO $ execCommand action' gs Player
-              loop gs' 
-
+      else do
+        liftIO $ putStrLn $ render gs Player
+        input <- liftIO getLine
+        result <- either -- Combine two eithers: If first action Left, propogate it. If right, execCommand and return an Either.
+                    (return . Left) 
+                    (\cmd -> execCommand cmd gs Player)
+                    (interp input)
+        case result of -- Earlier, two eithers were combined together because they should run the same thing on Left.
+          Left err -> liftIO (putStrLn err) >> loop (return gs)
+          Right gs' -> loop (return gs')

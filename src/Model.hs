@@ -53,9 +53,11 @@ data Phase = HeroSelect | Recruit | Combat deriving (Eq)
 -- For now, GameState just keeps track of the solo player and one AI.
 data Player = Player | AI
 
+newtype Config = Config { maxBoardSize :: Int }
 data GameState = GameState
   { playerState :: PlayerState,
     aiState :: PlayerState,
+    config :: Config,
     turn :: Turn
   }
 
@@ -84,7 +86,7 @@ data Command
   = Buy Index
   | Sell Index
   | Play Index
-  | Refresh
+  | Roll
   | Freeze
   | EndTurn
   | Help

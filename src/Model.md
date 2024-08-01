@@ -54,7 +54,7 @@ reroll :: GameState -> GameState
 reroll (GameState board) = fold (\card -> onReroll card) board
 ```
 
-Con: Cards should inform `reroll` if they have special `reroll` behavior that should completely override the default behavior (of subtracting 1 coin and refreshing shop). But special cards can override this behavior. Whether to override the default behavior
+Con: Cards should inform `reroll` if they have special `reroll` behavior that should completely override the default behavior (of subtracting 1 coin and rolling shop). But special cards can override this behavior. Whether to override the default behavior
 is card specific. This is a nuisance. I can technically make everything composable (no overriding) by adjusting `malchezaar`'s affect to "adding 1 gold and subtracting one health", but that's confusing.
 
 #### Modelling `Peggy`, `Bream Counter`.

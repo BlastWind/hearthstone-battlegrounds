@@ -5,7 +5,7 @@ import Card
 import Data.List (intercalate)
 import Data.Maybe (fromJust)
 import Data.UUID (UUID, fromString)
-import Model (CardInstance (..), GameState (..), Phase (..), PlayerState (..), Player (Player))
+import Model
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertEqual, testCase)
 import View (render)
@@ -116,7 +116,7 @@ blankAIState :: PlayerState
 blankAIState = blankPlayerState {hp = 5, armor = 0}
 
 blankGameState :: GameState
-blankGameState = GameState {playerState = blankPlayerState, aiState = blankAIState, turn = 0}
+blankGameState = GameState {playerState = blankPlayerState, aiState = blankAIState, config = Config {maxBoardSize = 7}, turn = 0}
 
 maxItemsGameState :: GameState
 maxItemsGameState = blankGameState {playerState = maxItemsPlayerState}

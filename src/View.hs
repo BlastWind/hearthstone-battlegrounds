@@ -111,7 +111,7 @@ helpMenu =
       "| buy <n> or b <n>     | Buy card at shop pos <n>     |",
       "| sell <n> or s <n>    | Sell minion at board pos <n> |",
       "| play <n> or p <n>    | Play minion at hand pos <n>  |",       
-      "| refresh or r         | Refresh your tavern          |",
+      "| roll or r            | Refresh your tavern          |",
       "| freeze or f          | Freeze your tavern           |",
       "| endturn or e         | End your turn                |",
       "| help or h            | Display this menu            |",
