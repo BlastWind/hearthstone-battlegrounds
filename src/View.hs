@@ -67,7 +67,7 @@ renderRecruit gs p =
         hBorder,
         "| Player:   " ++ alignMid maxRowContentWidth (intercalate " | " [healthText, armorText, goldText]) ++ "      |",
         hBorder,
-        "| Opps HP:  " ++ alignMid maxRowContentWidth oppInfoText,
+        "| Opps HP:  " ++ alignMid maxRowContentWidth oppInfoText ++ "      |",
         hBorder
       ]
   where

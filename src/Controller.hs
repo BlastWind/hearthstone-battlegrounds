@@ -91,7 +91,8 @@ defPlayerState =
       hp = 20,
       armor = 0,
       alive = True,
-      phase = HeroSelect
+      phase = HeroSelect,
+      combatSequence = ([], 0)
     }
 
 runGame :: IO ()
