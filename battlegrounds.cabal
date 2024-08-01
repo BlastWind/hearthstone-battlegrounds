@@ -29,6 +29,7 @@ library
       Controller
       Logic
       Model
+      Utils
       View
   other-modules:
       Paths_battlegrounds

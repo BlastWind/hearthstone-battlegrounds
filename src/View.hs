@@ -1,8 +1,10 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 module View (render, helpMenu) where
 
 import Data.List (intercalate)
-import Data.Map (toList)
-import Model (Card (_cardName), CardInstance (..), OppInfo (oppArmor, oppHP), Phase (..), PlayerState (..))
+import Model
+import Utils (selectPlayer)
 
 -- Render creates the following example. In the example, the names and entries are maxed out.
 -- I.e., 15 characters is the longest permitting name (Rockpool Hunter and playeracgodman1 have 15 chars). Shop and board have 7 entries max, hand has 10 max.
@@ -31,24 +33,21 @@ rowWidth = 142
 maxCardNameDisplayLength :: Int
 maxCardNameDisplayLength = 15
 
-maxPlayerNameDisplayLength :: Int
-maxPlayerNameDisplayLength = 15
-
 maxRowContentWidth :: Int
 maxRowContentWidth = length $ intercalate " | " $ replicate 7 "Rockpool Hunter" -- 123
 
-render :: PlayerState -> String
-render ps =
-  case phase ps of
-    Recruit -> renderRecruit ps
+render :: GameState -> Player -> String
+render gs p =
+  case (selectPlayer p gs).phase of
+    Recruit -> renderRecruit gs p
     HeroSelect -> "heroselect todo"
     Combat -> "combat todo"
 
 hBorder :: [Char]
 hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"
 
-renderRecruit :: PlayerState -> String
-renderRecruit ps =
+renderRecruit :: GameState -> Player -> String
+renderRecruit gs p =
   intercalate "\n" $
     filter
       (not . null)
@@ -68,13 +67,11 @@ renderRecruit ps =
         hBorder,
         "| Player:   " ++ alignMid maxRowContentWidth (intercalate " | " [healthText, armorText, goldText]) ++ "      |",
         hBorder,
-        "| Opps HP:  " ++ alignMid maxRowContentWidth (intercalate " | " $ take 4 oppInfoTextList) ++ "      |",
-        if not (null (drop 4 oppInfoTextList))
-          then "|           " ++ alignMid maxRowContentWidth (intercalate " | " $ drop 4 oppInfoTextList) ++ "      |"
-          else "",
+        "| Opps HP:  " ++ alignMid maxRowContentWidth oppInfoText,
         hBorder
       ]
   where
+    ps = selectPlayer p gs
     shopCardNames = [(abbrev maxCardNameDisplayLength . show . _cardName . _card) cardInstance | cardInstance <- shop ps]
     boardCardNames = [(abbrev maxCardNameDisplayLength . show . _cardName . _card) cardInstance | cardInstance <- board ps]
     handCardNames = [(abbrev maxCardNameDisplayLength . show . _cardName . _card) cardInstance | cardInstance <- hand ps]
@@ -84,7 +81,7 @@ renderRecruit ps =
     healthText = "Health: " ++ show (hp ps)
     armorText = "Armor: " ++ show (armor ps)
     goldText = "Gold: " ++ show (curGold ps) ++ "/" ++ show (maxGold ps)
-    oppInfoTextList = [abbrev maxPlayerNameDisplayLength userName ++ ": " ++ show (oppHP info) ++ " + " ++ show (oppArmor info) | (userName, info) <- toList $ opponentInformation ps]
+    oppInfoText = "Tutorial AI" ++ ": " ++ show gs.aiState.hp ++ " + " ++ show gs.aiState.armor
 
 abbrev :: Int -> String -> String
 abbrev maxLen s =

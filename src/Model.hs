@@ -4,7 +4,6 @@
 module Model (module Model) where
 
 import Control.Lens hiding (Index)
-import Data.Map (Map)
 import Data.UUID (UUID)
 import System.Random (StdGen)
 
@@ -58,13 +57,15 @@ type UserName = String
 
 data Phase = HeroSelect | Recruit | Combat deriving (Eq)
 
+-- For now, GameState just keeps track of the solo player and one AI.
+data Player = Player | AI
 data GameState = GameState
-  { _playerStates :: Map UserName PlayerState,
+  { playerState :: PlayerState, 
+    aiState :: PlayerState,
     turn :: Turn
   }
 
-data OppInfo = OppInfo {oppHP :: Health, oppArmor :: Armor}
-
+data CombatMoves = CombatMoves
 data PlayerState = PlayerState
   { tier :: TavernTier,
     maxGold :: Gold,
@@ -73,17 +74,14 @@ data PlayerState = PlayerState
     shop :: Shop,
     board :: Board,
     hand :: Hand,
-    phase :: Phase,
     frozen :: Bool,
     hp :: Health,
     armor :: Armor,
     alive :: Bool,
     rerollCost :: Gold,
-    opponentInformation :: Map UserName OppInfo
+    phase :: Phase,
+    combatSequence :: ([CombatMoves], Int)
   }
-
-$(makeLenses ''GameState)
-$(makeLenses ''PlayerState)
 
 data Env = Env
   { gen :: StdGen
@@ -91,4 +89,6 @@ data Env = Env
 
 type Index = Int
 
-data Action = Buy Index | Sell Index | Play Index | Help | StartGame | EndTurn
+data GameAction = StartGame
+
+data Command = EndTurn | Help | Buy Index | Sell Index | Play Index
