@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Card
+      Combat
       Controller
       Logic
       Model
@@ -66,6 +67,7 @@ test-suite battlegrounds-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      CombatTest
       ViewTest
       Paths_battlegrounds
   autogen-modules:

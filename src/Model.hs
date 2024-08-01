@@ -61,7 +61,8 @@ data GameState = GameState
     turn :: Turn
   }
 
-data CombatMoves = CombatMoves
+data CombatMove = 
+  Attack Int Int -- Player1's ith minion attacks Player2's jth minion
 
 data PlayerState = PlayerState
   { tier :: TavernTier,
@@ -77,7 +78,7 @@ data PlayerState = PlayerState
     alive :: Bool,
     rerollCost :: Gold,
     phase :: Phase,
-    combatSequence :: ([CombatMoves], Int)
+    combatSequence :: ([CombatMove], Int)
   }
 
 type Index = Int

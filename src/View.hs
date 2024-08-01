@@ -5,6 +5,8 @@ module View (render, helpMenu) where
 import Data.List (intercalate)
 import Model
 import Utils (selectPlayer)
+import Control.Monad (forM_)
+import Control.Concurrent (threadDelay)
 
 -- Render creates the following example. In the example, the names and entries are maxed out.
 -- I.e., 15 characters is the longest permitting name (Rockpool Hunter and playeracgodman1 have 15 chars). Shop and board have 7 entries max, hand has 10 max.
@@ -36,13 +38,18 @@ maxCardNameDisplayLength = 15
 maxRowContentWidth :: Int
 maxRowContentWidth = length $ intercalate " | " $ replicate 7 "Rockpool Hunter" -- 123
 
-render :: GameState -> Player -> String
+render :: GameState -> Player -> IO ()
 render gs p =
   case (selectPlayer p gs).phase of
-    Recruit -> renderRecruit gs p
-    HeroSelect -> "heroselect todo"
-    Combat -> "combat todo"
-    EndScreen -> if (selectPlayer p gs).alive then "Victory! Ending now." else "You loss. Ending now."
+    Recruit -> putStrLn $ renderRecruit gs p
+    HeroSelect -> putStrLn "heroselect todo"
+    Combat ->  forM_ [1..10] $ \n -> do
+      print n
+      threadDelay 500000 -- 500 milliseconds $"combat todo"
+    EndScreen -> if (selectPlayer p gs).alive then putStrLn "Victory! Ending now." else putStrLn "You loss. Ending now."
+
+replayCombat :: [CombatMove] -> [(Board, Board)] -> [String]
+replayCombat _ bs = []
 
 hBorder :: [Char]
 hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"

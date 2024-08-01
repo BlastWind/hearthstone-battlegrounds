@@ -1,5 +1,5 @@
 -- Controller: Handles input, game loop
-
+{-# LANGUAGE OverloadedRecordDot #-}
 module Controller (module Controller) where
 
 import Card (bigDumbo)
@@ -10,6 +10,8 @@ import Text.Parsec hiding (Error)
 import Text.Parsec.String (Parser)
 import Text.Read (readMaybe)
 import View (render)
+import System.IO (hReady, stdin)
+import GHC.Base (when)
 
 -- START: Functions for ingesting terminal input as PlayerAction --
 -- Examples:
@@ -102,7 +104,7 @@ defPlayerState =
 runGame :: IO ()
 runGame = do
   gs <- initGameState
-  gs' <- enter Recruit Player gs >>= enter Recruit AI
+  gs' <- enter Recruit Player gs
   _ <- loop (return gs')
   putStrLn "Game Loop Completed."
   where
@@ -112,16 +114,29 @@ runGame = do
       gs <- mgs
       if isGameOver gs
         then do
-
-          _ <- liftIO $ putStrLn $ render gs Player -- Render the EndScreen before exit.
+          _ <- liftIO $ render gs Player -- Render the EndScreen before exit.
           return gs
-      else do
-        liftIO $ putStrLn $ render gs Player
-        input <- liftIO getLine
-        result <- either -- Combine two eithers: If first action Left, propogate it. If right, execCommand and return an Either.
-                    (return . Left)
-                    (\cmd -> execCommand cmd gs Player)
-                    (interp input)
-        case result of -- Earlier, two eithers were combined together because they should run the same thing on Left.
-          Left err -> liftIO (putStrLn err) >> loop (return gs)
-          Right gs' -> loop (return gs')
+      else case gs.playerState.phase of
+        Recruit -> do
+          liftIO $ render gs Player
+          input <- liftIO getLine
+          result <- either -- Combine two eithers: If first action Left, propogate it. If right, execCommand and return an Either.
+                      (return . Left)
+                      (\cmd -> execCommand cmd gs Player)
+                      (interp input)
+          case result of -- Earlier, two eithers were combined together because they should run the same thing on Left.
+            Left err -> liftIO (putStrLn err) >> loop (return gs)
+            Right gs' -> loop (return gs')
+        Combat -> do
+          liftIO $ render gs Player
+          liftIO flushInput
+          loop $ enter Recruit Player gs
+        _ -> mgs
+
+-- ignore input entered during combat phase
+flushInput :: IO ()
+flushInput = do
+  ready <- hReady stdin
+  when ready $ do
+    _ <- getChar -- Ignores commands entered (pressing actual enter key), but, this does not ignore partially typed, not-yet-entered text
+    flushInput

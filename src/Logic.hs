@@ -30,7 +30,7 @@ isGameOver gs = gs.playerState.alive /= gs.aiState.alive
 
 -- Performed when we first transition to a new game phase.
 enter :: (MonadRandom m) => Phase -> Player -> GameState -> m GameState
-enter Recruit _ gs = do
+enter Recruit Player gs = do -- Entering Player's recruit phase triggers AI to perform same logic 
   newPlayerState <- enter' gs.playerState
   newAIState <- enter' gs.aiState
   return
@@ -49,6 +49,9 @@ enter Recruit _ gs = do
             frozen = False,
             shop = if ps.frozen then ps.shop else newShop
           }
+enter Combat Player gs = do 
+  let newPlayerState = (selectPlayer Player gs) { phase = Combat }
+  return gs {playerState = newPlayerState}
 enter _ _ _ = error "Other phases should not be enterable"
 
 -- START: Utility Methods for PlayerAction Functions --
