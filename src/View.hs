@@ -43,13 +43,30 @@ render gs p =
   case (selectPlayer p gs).phase of
     Recruit -> putStrLn $ renderRecruit gs p
     HeroSelect -> putStrLn "heroselect todo"
-    Combat ->  forM_ [1..10] $ \n -> do
-      print n
-      threadDelay 500000 -- 500 milliseconds $"combat todo"
+    Combat -> forM_ (replayCombat gs.playerState.combatSimulation) $ \s -> do
+      putStrLn s
+      threadDelay $ 500 * 1000 -- 500 milliseconds
     EndScreen -> if (selectPlayer p gs).alive then putStrLn "Victory! Ending now." else putStrLn "You loss. Ending now."
 
-replayCombat :: [CombatMove] -> [(Board, Board)] -> [String]
-replayCombat _ bs = []
+-- [String] contains each slice of the readily renderable combat!
+-- [CombatMove] is ignored for now. But, they are required to flavor the UI
+replayCombat :: CombatSimulation -> [String]
+replayCombat (CombatSimulation _ bs) = map renderBoardState bs
+
+renderBoardState :: ([CardInstance], [CardInstance]) -> String
+renderBoardState (board1, board2) =
+  intercalate "\n" $
+    [ hBorder,
+      "|" ++ alignMid (rowWidth - 2) "Combat Simulation" ++ "|",
+      hBorder,
+      "| Player 1: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board1)) ++ "      |",
+      hBorder,
+      "| Player 2: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board2)) ++ "      |",
+      hBorder
+    ]
+
+renderCard :: CardInstance -> String
+renderCard ci = abbrev maxCardNameDisplayLength (show ci.card.cardName) ++ "(" ++ show ci.card.attack ++ "/" ++ show ci.card.health ++ ")"
 
 hBorder :: [Char]
 hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"

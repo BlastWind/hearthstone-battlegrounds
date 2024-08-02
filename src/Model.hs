@@ -27,12 +27,12 @@ data Card = Card
     baseCost :: CardCost,
     attack :: Attack,
     health :: Health
-  }
+  } deriving Show
 
 data CardInstance = CardInstance
   { cardId :: UUID,
     card :: Card
-  }
+  } deriving Show
 
 type Gold = Int
 
@@ -51,7 +51,7 @@ type UserName = String
 data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Eq)
 
 -- For now, GameState just keeps track of the solo player and one AI.
-data Player = Player | AI
+data Player = Player | AI deriving (Show, Eq)
 
 data Config = Config { maxBoardSize :: Int, maxHandSize :: Int }
 data GameState = GameState
@@ -61,8 +61,18 @@ data GameState = GameState
     turn :: Turn
   }
 
+data CombatSimulation = CombatSimulation {combatMoves :: [CombatMove], boardSequences :: [(Board, Board)]} deriving Show
+
+-- TODO: The client can replay the same combat if provided the same seed
+-- However, for testing purposes, it will be nice to manually write out the attack sequence
 data CombatMove = 
-  Attack Int Int -- Player1's ith minion attacks Player2's jth minion
+  Attack Int Int -- Player1's ith minion attacks Player2's jth minion; 
+  deriving Show
+
+data Contestant = One | Two deriving (Show, Eq)
+data CombatResult = Loser Contestant | Tie deriving (Show, Eq)
+type Damage = Int
+type CombatHistory = [(Board, Board)]
 
 data PlayerState = PlayerState
   { tier :: TavernTier,
@@ -78,7 +88,7 @@ data PlayerState = PlayerState
     alive :: Bool,
     rerollCost :: Gold,
     phase :: Phase,
-    combatSequence :: ([CombatMove], Int)
+    combatSimulation :: CombatSimulation
   }
 
 type Index = Int

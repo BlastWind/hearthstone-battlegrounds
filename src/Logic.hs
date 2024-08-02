@@ -1,10 +1,12 @@
--- -- Logic: Handles game logic, executing user commands
+-- Logic: Handles recruit phase logic, executing user commands
+-- TODO: Modularize out the recruit logic, since Combat.hs is already separate.
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE ParallelListComp #-}
 
 module Logic (module Logic) where
 
 import Card (pool)
+import Combat (CombatResult (..), fight)
 import Control.Monad.Random
 import Data.Functor ((<&>))
 import Model
@@ -30,7 +32,8 @@ isGameOver gs = gs.playerState.alive /= gs.aiState.alive
 
 -- Performed when we first transition to a new game phase.
 enter :: (MonadRandom m) => Phase -> Player -> GameState -> m GameState
-enter Recruit Player gs = do -- Entering Player's recruit phase triggers AI to perform same logic 
+enter Recruit Player gs = do
+  -- Entering Player's recruit phase triggers AI to perform same logic
   newPlayerState <- enter' gs.playerState
   newAIState <- enter' gs.aiState
   return
@@ -49,10 +52,26 @@ enter Recruit Player gs = do -- Entering Player's recruit phase triggers AI to p
             frozen = False,
             shop = if ps.frozen then ps.shop else newShop
           }
-enter Combat Player gs = do 
-  let newPlayerState = (selectPlayer Player gs) { phase = Combat }
-  return gs {playerState = newPlayerState}
+-- fight! And then
+-- 1) provide the render phase with simulation sequence
+-- 2) unleash the damage
+enter Combat Player gs = do
+  let (sim, combatResult, dmg) = fight Player AI gs
+  let gs' = gs {playerState = gs.playerState {phase = Combat, combatSimulation = sim}}
+  case combatResult of
+    Tie -> return gs'
+    Loser loser -> return $ updatePlayer loser loserState' gs'
+      where
+        loserState = selectPlayer loser gs
+        (hp', armor') = dealDmg dmg (loserState.hp, loserState.armor)
+        loserState' = (selectPlayer loser gs) {hp = hp', armor = armor'} -- Note: Damage dealing happens before combat sequence is played
 enter _ _ _ = error "Other phases should not be enterable"
+
+dealDmg :: Int -> (Health, Armor) -> (Health, Armor)
+dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
+  where
+    armorDmg = min n armor
+    hpDmg = n - armorDmg
 
 -- START: Utility Methods for PlayerAction Functions --
 -- Determinisitc functions should only be used when the usage permits only the happy path
