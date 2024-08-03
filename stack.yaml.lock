@@ -3,7 +3,28 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: large-generics-0.2.2@sha256:b5e3aabbf9ddd8adf13c327b61ff776a92e29fd5915a8946181fa8c1a41ef7e0,2719
+    pantry-tree:
+      sha256: ba132d20515753f926f0217a8f3276a737fedadc8336cb45ea2d153f5df10d1d
+      size: 1976
+  original:
+    hackage: large-generics-0.2.2
+- completed:
+    hackage: large-records-0.4.1@sha256:3e1427f1932ab1b64773eb0a5c8f2021546a60f6f8073754b91f35d9fd6e11e7,4132
+    pantry-tree:
+      sha256: 06f40caddd8f5767332f87ceb159b2bbb41f9514605112840712e58deb80b8e5
+      size: 2908
+  original:
+    hackage: large-records-0.4.1
+- completed:
+    hackage: record-dot-preprocessor-0.2.17@sha256:fdc8038505aef4f5bf5decae3d08143b614facda44bc78e2270fcee2be116675,2560
+    pantry-tree:
+      sha256: a22a72bf59305e33846a864e84a16e6058dcd6f7b3db8baff091c525104689f4
+      size: 1140
+  original:
+    hackage: record-dot-preprocessor-0.2.17
 snapshots:
 - completed:
     sha256: 73ad581de7c5306278aec7706cafaf3b1c2eb7abf4ab586e4d9dc675c6106c4e

@@ -1,11 +1,15 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedRecordDot #-}
-
+{-# LANGUAGE OverloadedRecordUpdate #-}
+{-# LANGUAGE RebindableSyntax #-}
 module Combat where
 
 import Control.Monad.Random
+import Data.Record.Overloading
+import Debug.Trace (trace)
 import Model
 import Utils (selectPlayer, updatePlayer)
-import Debug.Trace (trace)
 
 -- New type for Attacker
 type Attacker = Contestant
@@ -21,7 +25,7 @@ fight :: (MonadRandom m) => Player -> Player -> GameState -> m GameState
 fight p1 p2 gs = do
   (sequence, finalState) <- simulateCombat ((selectPlayer p1 gs).board, (selectPlayer p2 gs).board)
   let result = calculateResult finalState
-  let gs' = gs {playerState = gs.playerState {phase = Combat, combatToReplay = CombatSimulation [] sequence result}}
+  let gs' = gs {playerState.phase = Combat, playerState.combatToReplay = CombatSimulation [] sequence result}
   case result of
     Tie -> return gs'
     Loss contestant dmg ->
@@ -30,15 +34,15 @@ fight p1 p2 gs = do
             Two -> AI
           loserState = selectPlayer loser gs'
           (hp', armor') = dealDmg dmg (loserState.hp, loserState.armor)
-          loserState' = loserState {hp = hp', armor = armor', alive=hp' > 0}
+          loserState' = loserState {hp = hp', armor = armor', alive = hp' > 0}
        in return $ updatePlayer loser loserState' gs'
 
 -- For now, the algorithm is wrong but simple:
 -- Players do alternate attacking, but the attacking and defending minions are both random.
 simulateCombat :: (MonadRandom m) => (Board, Board) -> m (CombatHistory, (Board, Board))
 simulateCombat initialState = do
-    attacker <- initialAttacker initialState
-    go attacker initialState [initialState] -- initial board is part of state
+  attacker <- initialAttacker initialState
+  go attacker initialState [initialState] -- initial board is part of state
   where
     go :: (MonadRandom m) => Attacker -> (Board, Board) -> CombatHistory -> m (CombatHistory, (Board, Board))
     go attacker state history = do
@@ -85,8 +89,8 @@ performAttack attackerP (board1, board2) = do
 
 trade :: (CardInstance, CardInstance) -> (CardInstance, CardInstance)
 trade (attacker, defender) =
-  ( attacker {card = attacker.card {health = attacker.card.health - defender.card.attack}},
-    defender {card = defender.card {health = defender.card.health - attacker.card.attack}}
+  ( attacker {card.health = attacker.card.health - defender.card.attack},
+    defender {card.health = defender.card.health - attacker.card.attack}
   )
 
 combatEnded :: (Board, Board) -> Bool

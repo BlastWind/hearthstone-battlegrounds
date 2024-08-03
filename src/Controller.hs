@@ -1,7 +1,19 @@
 -- Controller: Handles input, game loop
-{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedRecordDot    #-}
+{-# LANGUAGE OverloadedRecordUpdate #-}
+{-# LANGUAGE RebindableSyntax       #-}
+{-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
 module Controller (module Controller) where
 
+import Prelude
+import Data.Record.Overloading
 import Card (bigDumbo)
 import Control.Monad.Random (MonadRandom (getRandom), MonadIO, liftIO)
 import Logic (enter, execCommand, isGameOver)

@@ -1,7 +1,18 @@
-{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedRecordDot    #-}
+{-# LANGUAGE OverloadedRecordUpdate #-}
+{-# LANGUAGE RebindableSyntax       #-}
+{-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
 
 module View (render, helpMenu) where
 
+import Data.Record.Overloading
 import Control.Concurrent (threadDelay)
 import Control.Monad (forM_)
 import Data.List (intercalate)
@@ -102,16 +113,16 @@ renderRecruit gs p =
       ]
   where
     ps = selectPlayer p gs
-    shopCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- shop ps]
-    boardCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- board ps]
-    handCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- hand ps]
-    freezeText = if frozen ps then "Freeze: Yes" else "Freeze: No"
-    rerollCostText = "Reroll Cost: " ++ show (rerollCost ps)
+    shopCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- ps.shop]
+    boardCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- ps.board]
+    handCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- ps.hand]
+    freezeText = if ps.frozen then "Freeze: Yes" else "Freeze: No"
+    rerollCostText = "Reroll Cost: " ++ show ps.rerollCost
     tierText = "Tier: " ++ show ps.tier
-    tierUpCostText = "Upgrade Cost: " ++ if ps.tier < 6 then show (tierUpCost ps) else "-"
-    healthText = "Health: " ++ show (hp ps)
-    armorText = "Armor: " ++ show (armor ps)
-    goldText = "Gold: " ++ show (curGold ps) ++ "/" ++ show (maxGold ps)
+    tierUpCostText = "Upgrade Cost: " ++ if ps.tier < 6 then show ps.tierUpCost else "-"
+    healthText = "Health: " ++ show ps.hp
+    armorText = "Armor: " ++ show ps.armor
+    goldText = "Gold: " ++ show ps.curGold ++ "/" ++ show ps.maxGold
     oppInfoText = "Tutorial AI" ++ ": " ++ show gs.aiState.hp ++ " + " ++ show gs.aiState.armor
 
 abbrev :: Int -> String -> String

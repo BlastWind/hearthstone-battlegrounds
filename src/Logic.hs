@@ -1,12 +1,23 @@
 -- Logic: Handles recruit phase logic, executing user commands
 -- TODO: Modularize out the recruit logic, since Combat.hs is already separate.
-{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedRecordDot    #-}
+{-# LANGUAGE OverloadedRecordUpdate #-}
+{-# LANGUAGE RebindableSyntax       #-}
 {-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Logic (module Logic) where
 
+import Data.Record.Overloading
+
 import Card (pool)
-import Combat (fight)
 import Control.Monad.Random
 import Data.Functor ((<&>))
 import Model
