@@ -10,7 +10,7 @@
 {-# LANGUAGE RebindableSyntax       #-}
 {-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
 
-module View (render, helpMenu) where
+module View (module View) where
 
 import Data.Record.Overloading
 import Control.Concurrent (threadDelay)
@@ -20,7 +20,25 @@ import Debug.Trace (trace)
 import Model
 import Utils (selectPlayer)
 
--- Render creates the following example. In the example, the names and entries are maxed out.
+rowWidth :: Int
+rowWidth = 142
+
+maxCardNameDisplayLength :: Int
+maxCardNameDisplayLength = 15
+
+maxRowContentWidth :: Int
+maxRowContentWidth = length $ intercalate " | " $ replicate 7 "Rockpool Hunter" -- 123
+
+renderCard :: CardInstance -> String
+renderCard ci = abbrev maxCardNameDisplayLength (show ci.card.cardName) ++ "(" ++ show ci.card.attack ++ "/" ++ show ci.card.health ++ ")"
+
+hBorder :: [Char]
+hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"
+
+endScreenMsg :: GameState -> String
+endScreenMsg gs = if gs.playerState.alive then "Victory! Ending now." else "You loss. Ending now."
+
+-- fmtRecruit creates the following string. In the example below, the names and entries are maxed out.
 -- I.e., 15 characters is the longest permitting name (Rockpool Hunter and playeracgodman1 have 15 chars). Shop and board have 7 entries max, hand has 10 max.
 --
 --  +-------------------------------------------------------------------------------------------------------------------------------------------+
@@ -40,55 +58,8 @@ import Utils (selectPlayer)
 --  | Opps HP:  playeracgodman1: 35 + 5 | playeracgodman2: 26 + 3 | playeracgodman3: HP 27 + 0 | playeracgodman4: HP 27 + 3                     |
 --  |           playeracgodman5: 35 + 5 | playeracgodman6: 26 + 3 | playeracgodman7: HP 27 + 0                                                  |
 --  +-------------------------------------------------------------------------------------------------------------------------------------------+
-
-rowWidth :: Int
-rowWidth = 142
-
-maxCardNameDisplayLength :: Int
-maxCardNameDisplayLength = 15
-
-maxRowContentWidth :: Int
-maxRowContentWidth = length $ intercalate " | " $ replicate 7 "Rockpool Hunter" -- 123
-
-render :: GameState -> Player -> IO ()
-render gs p =
-  case (selectPlayer p gs).phase of
-    Recruit -> putStrLn $ renderRecruit gs p
-    HeroSelect -> putStrLn "heroselect todo"
-    Combat -> do
-      forM_ (replayCombat gs.playerState.combatToReplay) $ \s -> do
-        putStrLn s
-        threadDelay $ 1000 * 1000 -- 500 milliseconds
-      case gs.playerState.combatToReplay.result of
-        Tie -> putStrLn "You tied the round. Bob: Welcome back! How's it going out there?"
-        Loss loser dmg -> if loser == One then putStrLn $ "You lost the round and took " ++ show dmg ++ " dmg. Bob: You're good at this!" else putStrLn $ "You won the round and dealt " ++ show dmg ++ " dmg! Bob: I think you can win this thing!"
-    EndScreen -> if (selectPlayer p gs).alive then putStrLn "Victory! Ending now." else putStrLn "You loss. Ending now."
-
--- [String] contains each slice of the readily renderable combat!
--- [CombatMove] is ignored for now. But, they are required to flavor the UI
-replayCombat :: CombatSimulation -> [String]
-replayCombat (CombatSimulation _ bs _) = map renderBoardState bs
-
-renderBoardState :: ([CardInstance], [CardInstance]) -> String
-renderBoardState (board1, board2) =
-  intercalate "\n" $
-    [ hBorder,
-      "|" ++ alignMid (rowWidth - 2) "Combat Simulation" ++ "|",
-      hBorder,
-      "| Player 2: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board2)) ++ "      |",
-      hBorder,
-      "| Player 1: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board1)) ++ "      |",
-      hBorder
-    ]
-
-renderCard :: CardInstance -> String
-renderCard ci = abbrev maxCardNameDisplayLength (show ci.card.cardName) ++ "(" ++ show ci.card.attack ++ "/" ++ show ci.card.health ++ ")"
-
-hBorder :: [Char]
-hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"
-
-renderRecruit :: GameState -> Player -> String
-renderRecruit gs p =
+fmtRecruit :: GameState -> Player -> String
+fmtRecruit gs p =
   intercalate "\n" $
     filter
       (not . null)
@@ -140,6 +111,29 @@ alignMid space s = leftPad ++ s ++ rightPad
     rightPadCnt = spacesLeft `div` 2
     leftPad = replicate leftPadCnt ' '
     rightPad = replicate rightPadCnt ' '
+
+-- Replay the combat by rendering each "slice" of the combat state x seconds apart.
+type Seconds = Double
+replayCombat :: Seconds -> CombatSimulation -> IO ()
+replayCombat secs (CombatSimulation _ bs result) = do -- [CombatMove] is ignored for now. But, they are required to flavor the move UI (i.e., animate an attack require knowing who attacked who)
+  forM_ (map renderCombatBoardState bs) $ \s -> do
+    putStrLn s
+    threadDelay $ round $ secs * 1000
+  case result of
+    Tie -> putStrLn "You tied the round. Bob: Welcome back! How's it going out there?"
+    Loss loser dmg -> if loser == One then putStrLn $ "You lost the round and took " ++ show dmg ++ " dmg. Bob: You're good at this!" else putStrLn $ "You won the round and dealt " ++ show dmg ++ " dmg! Bob: I think you can win this thing!"
+
+renderCombatBoardState :: (Board, Board) -> String
+renderCombatBoardState (board1, board2) =
+  intercalate "\n" $
+    [ hBorder,
+      "|" ++ alignMid (rowWidth - 2) "Combat Simulation" ++ "|",
+      hBorder,
+      "| Player 2: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board2)) ++ "      |",
+      hBorder,
+      "| Player 1: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board1)) ++ "      |",
+      hBorder
+    ]
 
 helpMenu :: String
 helpMenu =

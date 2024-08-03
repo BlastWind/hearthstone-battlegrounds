@@ -20,22 +20,22 @@ dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
     armorDmg = min n armor
     hpDmg = n - armorDmg
 
--- `fight` simulates the combat and logs every move and intermediate combat state.
-fight :: (MonadRandom m) => Player -> Player -> GameState -> m GameState
+-- `fight` simulates the combat
+fight :: (MonadRandom m) => Player -> Player -> GameState -> m (GameState, CombatSimulation)
 fight p1 p2 gs = do
   (sequence, finalState) <- simulateCombat ((selectPlayer p1 gs).board, (selectPlayer p2 gs).board)
   let result = calculateResult finalState
-  let gs' = gs {playerState.phase = Combat, playerState.combatToReplay = CombatSimulation [] sequence result}
+  let sim = CombatSimulation [] sequence result
   case result of
-    Tie -> return gs'
+    Tie -> return (gs, sim)
     Loss contestant dmg ->
       let loser = case contestant of
             One -> Player
             Two -> AI
-          loserState = selectPlayer loser gs'
+          loserState = selectPlayer loser gs
           (hp', armor') = dealDmg dmg (loserState.hp, loserState.armor)
           loserState' = loserState {hp = hp', armor = armor', alive = hp' > 0}
-       in return $ updatePlayer loser loserState' gs'
+       in return (updatePlayer loser loserState' gs, sim)
 
 -- For now, the algorithm is wrong but simple:
 -- Players do alternate attacking, but the attacking and defending minions are both random.

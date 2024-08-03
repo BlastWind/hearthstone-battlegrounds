@@ -123,8 +123,7 @@ data PlayerState = PlayerState
     armor :: Armor,
     alive :: Bool,
     rerollCost :: Gold,
-    phase :: Phase,
-    combatToReplay :: CombatSimulation
+    phase :: Phase
   } deriving Show
 
 {-# ANN type GameState largeRecord #-}

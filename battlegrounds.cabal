@@ -73,7 +73,6 @@ test-suite battlegrounds-test
   main-is: Spec.hs
   other-modules:
       CombatTest
-      ViewTest
       Paths_battlegrounds
   autogen-modules:
       Paths_battlegrounds

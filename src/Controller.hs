@@ -1,33 +1,33 @@
 -- Controller: Handles input, game loop
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE DuplicateRecordFields  #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedRecordDot    #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedRecordUpdate #-}
-{-# LANGUAGE RebindableSyntax       #-}
+{-# LANGUAGE RebindableSyntax #-}
 {-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
+
 module Controller (module Controller) where
 
-import Prelude
-import Data.Record.Overloading
 import Card (bigDumbo)
-import Control.Monad.Random (MonadRandom (getRandom), MonadIO, liftIO)
-import Logic (enter, execCommand, isGameOver)
+import Combat (fight)
+import Control.Monad.Random (MonadIO, MonadRandom (getRandom), liftIO)
+import Data.Record.Overloading hiding (loop)
+import qualified Data.Text.Lazy as TL
+import Debug.Trace (trace, traceM)
+import GHC.Base (when)
+import Logic (execCommand, isGameOver, replenish)
 import Model
+import System.IO (hFlush, hReady, stdin, stdout)
 import Text.Parsec hiding (Error)
 import Text.Parsec.String (Parser)
-import Text.Read (readMaybe)
-import View (render)
-import System.IO (hReady, stdin, hFlush, stdout)
-import GHC.Base (when)
 import Text.Pretty.Simple (pPrint, pShow)
-import Debug.Trace (trace, traceM)
-import qualified Data.Text.Lazy as TL
-import Combat (fight)
+import Text.Read (readMaybe)
+import View
 
 -- START: Functions for ingesting terminal input as PlayerAction --
 -- Examples:
@@ -91,7 +91,7 @@ playArgParser = do
 initGameState :: (MonadRandom m) => m GameState
 initGameState = do
   tutorialAIGameState <- tutorialAI
-  return $ GameState {playerState = defPlayerState, aiState = tutorialAIGameState, turn = 0, config = Config { maxBoardSize = 7, maxHandSize = 10 }}
+  return $ GameState {playerState = defPlayerState, aiState = tutorialAIGameState, turn = 0, config = Config {maxBoardSize = 7, maxHandSize = 10}}
 
 tutorialAI :: (MonadRandom m) => m PlayerState
 tutorialAI = do
@@ -113,52 +113,57 @@ defPlayerState =
       hp = 20,
       armor = 0,
       alive = True,
-      phase = HeroSelect,
-      combatToReplay = CombatSimulation [] [] Tie
+      phase = Recruit
     }
 
 runGame :: IO ()
 runGame = do
   gs <- initGameState
-  gs' <- enter Recruit Player gs
-  _ <- loop (return gs')
+  _ <- loop $ return gs
   putStrLn "Game Loop Completed."
   where
     -- Repeat Recruit and Combat until game over
     loop :: (MonadIO m, MonadRandom m) => m GameState -> m GameState
     loop mgs = do
       gs <- mgs
-      if isGameOver gs
-        then do
-          gs' <- enter EndScreen Player gs
-          _ <- liftIO $ render gs' Player -- Render the EndScreen before exit.
-          -- trace "Before loop finally returns" 
-          -- $ 
-          return gs'
-      else 
-        -- trace (TL.unpack $ pShow gs) 
-        -- $ 
-        case gs.playerState.phase of
+      -- Go to EndScreen if applicable
+      let gs' = gs {playerState.phase = if isGameOver gs then EndScreen else gs.playerState.phase}
+      -- trace (TL.unpack $ pShow gs)
+      case gs'.playerState.phase of
         Recruit -> do
-          liftIO $ render gs Player
-          liftIO $ putStr "> "
-          liftIO $ hFlush stdout
-          input <- liftIO getLine
-          result <- either -- Combine two eithers: If first action Left, propogate it. If right, execCommand and return an Either.
-                      (return . Left)
-                      (\cmd -> execCommand cmd gs Player)
-                      (interp input)
-          case result of -- Earlier, two eithers were combined together because they should run the same thing on Left.
-            Left err -> liftIO (putStrLn err) >> loop (return gs)
-            Right gs' -> loop (return gs')
+          replenishedPlayer <- replenish gs'.playerState
+          replenishedAI <- replenish gs'.aiState
+          let gs'' = gs' {playerState = replenishedPlayer, aiState = replenishedAI}
+          recruitLoop gs'' >>= (loop . return)
         Combat -> do
-          gs' <- fight Player AI gs
-          liftIO $ render gs' Player
-          liftIO flushInput
-          loop $ enter Recruit Player gs'
-        _ -> mgs
+          (gs'', sim) <- fight Player AI gs'
+          liftIO $ replayCombat 1 sim
+          liftIO flushInput -- ignore input entered during combat phase
+          liftIO $ putStrLn "finished playing"
+          loop $ return gs'' {playerState.phase = Recruit, aiState.phase = Recruit}
+        EndScreen -> do
+          -- Note EndScreen doesn't invoke `loop`. Game logic stops here.
+          liftIO $ putStrLn $ endScreenMsg gs'
+          return gs
+        _ -> error "Other phases not yet implemented"
 
--- ignore input entered during combat phase
+recruitLoop :: (MonadIO m, MonadRandom m) => GameState -> m GameState
+recruitLoop gs
+  | gs.playerState.phase == Recruit = do
+      liftIO $ putStrLn $ fmtRecruit gs Player
+      liftIO $ putStr "> "
+      liftIO $ hFlush stdout
+      input <- liftIO getLine
+      result <-
+        either
+          (return . Left)
+          (\cmd -> execCommand cmd gs Player)
+          (interp input)
+      case result of
+        Left err -> liftIO (putStrLn err) >> recruitLoop gs
+        Right gs' -> recruitLoop gs'
+  | otherwise = return gs
+
 flushInput :: IO ()
 flushInput = do
   ready <- hReady stdin

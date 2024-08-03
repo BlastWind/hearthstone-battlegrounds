@@ -1,25 +1,23 @@
 -- Logic: Handles recruit phase logic, executing user commands
 -- TODO: Modularize out the recruit logic, since Combat.hs is already separate.
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE DuplicateRecordFields  #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedRecordDot    #-}
-{-# LANGUAGE OverloadedRecordUpdate #-}
-{-# LANGUAGE RebindableSyntax       #-}
-{-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedRecordUpdate #-}
+{-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE RebindableSyntax #-}
 
 module Logic (module Logic) where
 
-import Data.Record.Overloading
-
 import Card (pool)
 import Control.Monad.Random
-import Data.Functor ((<&>))
+import Data.Record.Overloading
 import Model
 import Utils
 import View (helpMenu)
@@ -28,8 +26,12 @@ execCommand :: (MonadIO m, MonadRandom m) => Command -> GameState -> Player -> m
 execCommand (Buy ind) gs p = return $ buy ind gs p >>= (\ps' -> Right $ updatePlayer p ps' gs)
 execCommand (Sell ind) gs p = return $ sell ind (selectPlayer p gs) >>= (\ps' -> Right $ updatePlayer p ps' gs)
 execCommand (Play ind) gs p = return $ play ind gs p >>= (\ps' -> Right $ updatePlayer p ps' gs)
-execCommand Help gs _ = liftIO (putStrLn helpMenu) >> pure (Right gs)
-execCommand EndTurn gs p = enter Combat p gs <&> Right
+execCommand Help gs Player = liftIO (putStrLn helpMenu) >> pure (Right gs)
+execCommand Help gs AI = error "Dev Error: AI shouldn't issue `Help`."
+execCommand EndTurn gs Player = return $ Right gs { playerState.phase = Combat }
+-- In tutorial mode, the single player issues the combat (on their will) and fights the AI always
+-- In multiplayer, the server issues the combat (by a timer) and pairs up who to fight
+execCommand EndTurn _ AI = error "Dev Error: AI really shouldn't issue `EndTurn`." 
 execCommand Roll gs p = do
   ps' <- roll $ selectPlayer p gs
   return $ liftM2 (updatePlayer p) ps' (return gs)
@@ -42,42 +44,19 @@ isGameOver :: GameState -> Bool
 isGameOver gs = gs.playerState.alive /= gs.aiState.alive
 
 -- Performed when we first transition to a new game phase.
-enter :: (MonadRandom m) => Phase -> Player -> GameState -> m GameState
-enter Recruit Player gs = do
-  -- Entering Player's recruit phase triggers AI to perform same logic
-  newPlayerState <- enter' gs.playerState
-  newAIState <- enter' gs.aiState
-  return
-    gs
-      { playerState = newPlayerState,
-        aiState = newAIState
-      }
-  where
-    enter' ps = do
-      newShop <- randomShop ps.tier
-      return $
-        ps
-          { phase = Recruit,
-            maxGold = ps.maxGold + 1,
-            curGold = ps.maxGold + 1,
-            frozen = False,
-            shop = if ps.frozen then ps.shop else newShop
-          }
--- fight! And then
--- 1) provide the render phase with simulation sequence
--- 2) unleash the damage
-enter Combat p gs = do
-  let newState = (selectPlayer p gs) { phase = Combat }
-  return $ updatePlayer p newState gs
-enter EndScreen p gs = do
-  let newState = (selectPlayer p gs) { phase = EndScreen }
-  return $ updatePlayer p newState gs
-enter _ _ _ = error "Other phases are not yet enterable"
-
+replenish :: (MonadRandom m) => PlayerState -> m PlayerState
+replenish ps = do
+  newShop <- randomShop ps.tier
+  return ps
+    { phase = Recruit,
+      maxGold = ps.maxGold + 1,
+      curGold = ps.maxGold + 1,
+      frozen = False,
+      shop = if ps.frozen then ps.shop else newShop
+    }
 
 -- START: Utility Methods for PlayerAction Functions --
 -- Determinisitc functions should only be used when the usage permits only the happy path
-
 deterministicLookup :: (Eq a) => a -> [(a, b)] -> b
 deterministicLookup a xs =
   case lookup a xs of
@@ -183,6 +162,6 @@ freeze ps = return ps {frozen = not ps.frozen}
 
 -- Kill player and move their render screen to the EndScreen
 concede :: PlayerState -> Either String PlayerState
-concede ps = return ps {alive = False, phase = EndScreen}
+concede ps = return ps {alive = False}
 
 -- END --
