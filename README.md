@@ -1,6 +1,8 @@
 # battlegrounds
 Early Work In Progress!
 
+![early-wip-demo](./docs/early-wip-demo.gif)
+
 Overall, the architecture is MVC (Model, View, Controller) and some event-driven programming. See discussions on architecture [here](app/Model.md).
 
 ### Roadmap
