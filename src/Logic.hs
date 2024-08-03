@@ -6,7 +6,7 @@
 module Logic (module Logic) where
 
 import Card (pool)
-import Combat (CombatResult (..), fight)
+import Combat (fight)
 import Control.Monad.Random
 import Data.Functor ((<&>))
 import Model
@@ -55,23 +55,14 @@ enter Recruit Player gs = do
 -- fight! And then
 -- 1) provide the render phase with simulation sequence
 -- 2) unleash the damage
-enter Combat Player gs = do
-  let (sim, combatResult, dmg) = fight Player AI gs
-  let gs' = gs {playerState = gs.playerState {phase = Combat, combatSimulation = sim}}
-  case combatResult of
-    Tie -> return gs'
-    Loser loser -> return $ updatePlayer loser loserState' gs'
-      where
-        loserState = selectPlayer loser gs
-        (hp', armor') = dealDmg dmg (loserState.hp, loserState.armor)
-        loserState' = (selectPlayer loser gs) {hp = hp', armor = armor'} -- Note: Damage dealing happens before combat sequence is played
-enter _ _ _ = error "Other phases should not be enterable"
+enter Combat p gs = do
+  let newState = (selectPlayer p gs) { phase = Combat }
+  return $ updatePlayer p newState gs
+enter EndScreen p gs = do
+  let newState = (selectPlayer p gs) { phase = EndScreen }
+  return $ updatePlayer p newState gs
+enter _ _ _ = error "Other phases are not yet enterable"
 
-dealDmg :: Int -> (Health, Armor) -> (Health, Armor)
-dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
-  where
-    armorDmg = min n armor
-    hpDmg = n - armorDmg
 
 -- START: Utility Methods for PlayerAction Functions --
 -- Determinisitc functions should only be used when the usage permits only the happy path

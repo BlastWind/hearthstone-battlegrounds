@@ -2,11 +2,12 @@
 
 module View (render, helpMenu) where
 
+import Control.Concurrent (threadDelay)
+import Control.Monad (forM_)
 import Data.List (intercalate)
+import Debug.Trace (trace)
 import Model
 import Utils (selectPlayer)
-import Control.Monad (forM_)
-import Control.Concurrent (threadDelay)
 
 -- Render creates the following example. In the example, the names and entries are maxed out.
 -- I.e., 15 characters is the longest permitting name (Rockpool Hunter and playeracgodman1 have 15 chars). Shop and board have 7 entries max, hand has 10 max.
@@ -43,15 +44,19 @@ render gs p =
   case (selectPlayer p gs).phase of
     Recruit -> putStrLn $ renderRecruit gs p
     HeroSelect -> putStrLn "heroselect todo"
-    Combat -> forM_ (replayCombat gs.playerState.combatSimulation) $ \s -> do
-      putStrLn s
-      threadDelay $ 500 * 1000 -- 500 milliseconds
+    Combat -> do
+      forM_ (replayCombat gs.playerState.combatToReplay) $ \s -> do
+        putStrLn s
+        threadDelay $ 1000 * 1000 -- 500 milliseconds
+      case gs.playerState.combatToReplay.result of
+        Tie -> putStrLn "You tied the round. Bob: Welcome back! How's it going out there?"
+        Loss loser dmg -> if loser == One then putStrLn $ "You lost the round and took " ++ show dmg ++ " dmg. Bob: You're good at this!" else putStrLn $ "You won the round and dealt " ++ show dmg ++ " dmg! Bob: I think you can win this thing!"
     EndScreen -> if (selectPlayer p gs).alive then putStrLn "Victory! Ending now." else putStrLn "You loss. Ending now."
 
 -- [String] contains each slice of the readily renderable combat!
 -- [CombatMove] is ignored for now. But, they are required to flavor the UI
 replayCombat :: CombatSimulation -> [String]
-replayCombat (CombatSimulation _ bs) = map renderBoardState bs
+replayCombat (CombatSimulation _ bs _) = map renderBoardState bs
 
 renderBoardState :: ([CardInstance], [CardInstance]) -> String
 renderBoardState (board1, board2) =
@@ -59,9 +64,9 @@ renderBoardState (board1, board2) =
     [ hBorder,
       "|" ++ alignMid (rowWidth - 2) "Combat Simulation" ++ "|",
       hBorder,
-      "| Player 1: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board1)) ++ "      |",
-      hBorder,
       "| Player 2: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board2)) ++ "      |",
+      hBorder,
+      "| Player 1: " ++ alignMid maxRowContentWidth (intercalate " | " (map renderCard board1)) ++ "      |",
       hBorder
     ]
 

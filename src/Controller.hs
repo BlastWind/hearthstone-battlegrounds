@@ -10,8 +10,12 @@ import Text.Parsec hiding (Error)
 import Text.Parsec.String (Parser)
 import Text.Read (readMaybe)
 import View (render)
-import System.IO (hReady, stdin)
+import System.IO (hReady, stdin, hFlush, stdout)
 import GHC.Base (when)
+import Text.Pretty.Simple (pPrint, pShow)
+import Debug.Trace (trace, traceM)
+import qualified Data.Text.Lazy as TL
+import Combat (fight)
 
 -- START: Functions for ingesting terminal input as PlayerAction --
 -- Examples:
@@ -86,7 +90,7 @@ defPlayerState :: PlayerState
 defPlayerState =
   PlayerState
     { tier = 1,
-      maxGold = 2, -- By `enter`ing into the first turn, this becomes 3 as required.
+      maxGold = 300, -- By `enter`ing into the first turn, this becomes 3 as required.
       curGold = 2,
       tierUpCost = 6, -- By `enter`ing into the first turn, this becomes 5 as required.
       rerollCost = 1,
@@ -98,7 +102,7 @@ defPlayerState =
       armor = 0,
       alive = True,
       phase = HeroSelect,
-      combatSimulation = CombatSimulation [] []
+      combatToReplay = CombatSimulation [] [] Tie
     }
 
 runGame :: IO ()
@@ -114,11 +118,19 @@ runGame = do
       gs <- mgs
       if isGameOver gs
         then do
-          _ <- liftIO $ render gs Player -- Render the EndScreen before exit.
-          return gs
-      else case gs.playerState.phase of
+          gs' <- enter EndScreen Player gs
+          _ <- liftIO $ render gs' Player -- Render the EndScreen before exit.
+          -- trace "Before loop finally returns" 
+          -- $ 
+          return gs'
+      else 
+        -- trace (TL.unpack $ pShow gs) 
+        -- $ 
+        case gs.playerState.phase of
         Recruit -> do
           liftIO $ render gs Player
+          liftIO $ putStr "> "
+          liftIO $ hFlush stdout
           input <- liftIO getLine
           result <- either -- Combine two eithers: If first action Left, propogate it. If right, execCommand and return an Either.
                       (return . Left)
@@ -128,9 +140,10 @@ runGame = do
             Left err -> liftIO (putStrLn err) >> loop (return gs)
             Right gs' -> loop (return gs')
         Combat -> do
-          liftIO $ render gs Player
+          gs' <- fight Player AI gs
+          liftIO $ render gs' Player
           liftIO flushInput
-          loop $ enter Recruit Player gs
+          loop $ enter Recruit Player gs'
         _ -> mgs
 
 -- ignore input entered during combat phase

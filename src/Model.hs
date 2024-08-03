@@ -48,20 +48,20 @@ type Turn = Int -- What turn are we on?
 
 type UserName = String
 
-data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Eq)
+data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Show, Eq)
 
 -- For now, GameState just keeps track of the solo player and one AI.
 data Player = Player | AI deriving (Show, Eq)
 
-data Config = Config { maxBoardSize :: Int, maxHandSize :: Int }
+data Config = Config { maxBoardSize :: Int, maxHandSize :: Int } deriving Show
 data GameState = GameState
   { playerState :: PlayerState,
     aiState :: PlayerState,
     config :: Config,
     turn :: Turn
-  }
+  } deriving Show
 
-data CombatSimulation = CombatSimulation {combatMoves :: [CombatMove], boardSequences :: [(Board, Board)]} deriving Show
+data CombatSimulation = CombatSimulation {combatMoves :: [CombatMove], boardSequences :: [(Board, Board)], result :: CombatResult } deriving Show
 
 -- TODO: The client can replay the same combat if provided the same seed
 -- However, for testing purposes, it will be nice to manually write out the attack sequence
@@ -70,7 +70,7 @@ data CombatMove =
   deriving Show
 
 data Contestant = One | Two deriving (Show, Eq)
-data CombatResult = Loser Contestant | Tie deriving (Show, Eq)
+data CombatResult = Loss Contestant Damage | Tie deriving (Show, Eq)
 type Damage = Int
 type CombatHistory = [(Board, Board)]
 
@@ -88,8 +88,8 @@ data PlayerState = PlayerState
     alive :: Bool,
     rerollCost :: Gold,
     phase :: Phase,
-    combatSimulation :: CombatSimulation
-  }
+    combatToReplay :: CombatSimulation
+  } deriving Show
 
 type Index = Int
 

@@ -3,82 +3,97 @@
 module Combat where
 
 import Control.Monad.Random
-import Data.List (sortOn)
-import Data.Ord (Down (Down))
 import Model
-import Utils (selectPlayer)
+import Utils (selectPlayer, updatePlayer)
+import Debug.Trace (trace)
 
 -- New type for Attacker
 type Attacker = Contestant
 
+dealDmg :: Int -> (Health, Armor) -> (Health, Armor)
+dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
+  where
+    armorDmg = min n armor
+    hpDmg = n - armorDmg
+
 -- `fight` simulates the combat and logs every move and intermediate combat state.
-fight :: (MonadRandom m) => Player -> Player -> GameState -> m (CombatSimulation, CombatResult, Damage)
+fight :: (MonadRandom m) => Player -> Player -> GameState -> m GameState
 fight p1 p2 gs = do
   (sequence, finalState) <- simulateCombat ((selectPlayer p1 gs).board, (selectPlayer p2 gs).board)
-  let result = determineCombatResult finalState
-  let damage = calculateDamage result finalState
-  return (CombatSimulation [] sequence, result, damage)
+  let result = calculateResult finalState
+  let gs' = gs {playerState = gs.playerState {phase = Combat, combatToReplay = CombatSimulation [] sequence result}}
+  case result of
+    Tie -> return gs'
+    Loss contestant dmg ->
+      let loser = case contestant of
+            One -> Player
+            Two -> AI
+          loserState = selectPlayer loser gs'
+          (hp', armor') = dealDmg dmg (loserState.hp, loserState.armor)
+          loserState' = loserState {hp = hp', armor = armor', alive=hp' > 0}
+       in return $ updatePlayer loser loserState' gs'
 
+-- For now, the algorithm is wrong but simple:
+-- Players do alternate attacking, but the attacking and defending minions are both random.
 simulateCombat :: (MonadRandom m) => (Board, Board) -> m (CombatHistory, (Board, Board))
-simulateCombat state = go state []
+simulateCombat initialState = do
+    attacker <- initialAttacker initialState
+    go attacker initialState [initialState] -- initial board is part of state
   where
-    go state history
-      | combatEnded state = return (reverse history, state)
-      | otherwise = do
-          attacker <- chooseAttacker state
-          newState <- performAttack attacker state
-          go newState (state : history)
+    go :: (MonadRandom m) => Attacker -> (Board, Board) -> CombatHistory -> m (CombatHistory, (Board, Board))
+    go attacker state history = do
+      let state' = both (filter (\ci -> ci.card.health > 0)) state
+      if combatEnded state'
+        then return (reverse history, state')
+        else do
+          newState <- performAttack attacker state'
+          go (alternate attacker) newState (newState : history)
 
-displayInOrder :: Int -> Board -> Board
-displayInOrder i b = _
+both :: (a -> b) -> (a, a) -> (b, b)
+both f (a, a') = (f a, f a')
 
-chooseAttacker :: (MonadRandom m) => (Board, Board) -> m Attacker
-chooseAttacker (board1, board2)
+alternate :: Contestant -> Contestant
+alternate One = Two
+alternate Two = One
+
+initialAttacker :: (MonadRandom m) => (Board, Board) -> m Attacker
+initialAttacker (board1, board2)
   | length board1 > length board2 = return One
   | length board2 > length board1 = return Two
   | otherwise = do
       r <- getRandomR (0, 1) :: (MonadRandom m) => m Int
       return $ if r == 0 then One else Two
 
+setAt :: Int -> a -> [a] -> [a]
+setAt i x xs = take i xs ++ [x] ++ drop (i + 1) xs
+
 performAttack :: (MonadRandom m) => Attacker -> (Board, Board) -> m (Board, Board)
-performAttack attacker (board1, board2) = do
-  let (attackingBoard, defendingBoard) = case attacker of
+performAttack attackerP (board1, board2) = do
+  let (attackingBoard, defendingBoard) = case attackerP of
         One -> (board1, board2)
         Two -> (board2, board1)
-  defenderIndex <- selectRandomDefender defendingBoard
-  let (newAttackingBoard, newDefendingBoard) = atk (head attackingBoard) defenderIndex (attackingBoard, defendingBoard)
-  let rotatedAttackingBoard = tail newAttackingBoard ++ [head newAttackingBoard]
-  return $ case attacker of
-    One -> (rotatedAttackingBoard, newDefendingBoard)
-    Two -> (newDefendingBoard, rotatedAttackingBoard)
+  attackerIndex <- getRandomR (0, length attackingBoard - 1)
+  defenderIndex <- getRandomR (0, length defendingBoard - 1)
+  let attacker = attackingBoard !! attackerIndex
+      defender = defendingBoard !! defenderIndex
+      (attacker', defender') = trade (attacker, defender)
+      attackingBoard' = setAt attackerIndex attacker' attackingBoard
+      defendingBoard' = setAt defenderIndex defender' defendingBoard
+  return $ case attackerP of
+    One -> (attackingBoard', defendingBoard')
+    Two -> (defendingBoard', attackingBoard')
 
-selectRandomDefender :: (MonadRandom m) => Board -> m Int
-selectRandomDefender board = getRandomR (0, length board - 1)
-
-atk :: CardInstance -> Int -> (Board, Board) -> (Board, Board)
-atk attacker defenderIndex (attackerBoard, defenderBoard) =
-  let defender = defenderBoard !! defenderIndex
-      newAttacker = attacker {card = (attacker.card) {health = max 0 (attacker.card.health - defender.card.attack)}}
-      newDefender = defender {card = (defender.card) {health = max 0 (defender.card.health - attacker.card.attack)}}
-      newAttackerBoard = if newAttacker.card.health > 0 then newAttacker : tail attackerBoard else tail attackerBoard
-      newDefenderBoard =
-        take defenderIndex defenderBoard
-          ++ ([newDefender | newDefender.card.health > 0])
-          ++ drop (defenderIndex + 1) defenderBoard
-   in (newAttackerBoard, newDefenderBoard)
+trade :: (CardInstance, CardInstance) -> (CardInstance, CardInstance)
+trade (attacker, defender) =
+  ( attacker {card = attacker.card {health = attacker.card.health - defender.card.attack}},
+    defender {card = defender.card {health = defender.card.health - attacker.card.attack}}
+  )
 
 combatEnded :: (Board, Board) -> Bool
 combatEnded (board1, board2) = null board1 || null board2
 
-determineCombatResult :: (Board, Board) -> CombatResult
-determineCombatResult (board1, board2)
-  | not (null board1) && null board2 = Loser Two
-  | null board1 && not (null board2) = Loser One
+calculateResult :: (Board, Board) -> CombatResult
+calculateResult (board1, board2)
+  | not (null board1) && null board2 = Loss Two (sum $ map (\ci -> ci.card.cardTier) board1)
+  | null board1 && not (null board2) = Loss One (sum $ map (\ci -> ci.card.cardTier) board2)
   | otherwise = Tie
-
-calculateDamage :: CombatResult -> (Board, Board) -> Damage
-calculateDamage result (board1, board2) =
-  case result of
-    Loser One -> sum $ map (\ci -> ci.card.cardTier) board2
-    Loser Two -> sum $ map (\ci -> ci.card.cardTier) board1
-    Tie -> 0
