@@ -1,28 +1,46 @@
+{-# LANGUAGE GADTs #-}
+
 module Card (module Card) where
 
 import Model
 
-
 pool :: [Card]
 pool = [dummy, dumber, triDummy, dumbo, bigDumbo, kingDumbo]
 
+defCard :: Card
+defCard = Card {cardName = PlaceHolder, cardTier = -1, baseCost = -1, attack = -1, health = -1, deathrattle = []}
+
+skeleton :: Card
+skeleton = defCard {cardName = Skeleton, cardTier = 1, baseCost = error "Skeleton has no base cost.", attack = 1, health = 1}
+
+harmlessBonehead :: Card
+harmlessBonehead =
+  defCard
+    { cardName = HarmlessBonehead,
+      cardTier = 1,
+      baseCost = 3,
+      attack = 1,
+      health = 1,
+      deathrattle = [Summon [skeleton, skeleton]]
+    }
+
 dummy :: Card
-dummy = Card Dummy 1 3 1 1
+dummy = defCard {cardName = Dummy, cardTier = 1, baseCost = 3, attack = 1, health = 1}
 
 dumber :: Card
-dumber = Card Dumber 2 3 2 2
+dumber = defCard {cardName = Dumber, cardTier = 2, baseCost = 3, attack = 2, health = 2}
 
 triDummy :: Card
-triDummy = Card TriDummy 3 3 3 3
+triDummy = defCard {cardName = TriDummy, cardTier = 3, baseCost = 3, attack = 3, health = 3}
 
 dumbo :: Card
-dumbo = Card Dumbo 4 3 4 4
+dumbo = defCard {cardName = Dumbo, cardTier = 4, baseCost = 3, attack = 4, health = 4}
 
 bigDumbo :: Card
-bigDumbo = Card BigDumbo 5 3 5 5
+bigDumbo = defCard {cardName = BigDumbo, cardTier = 5, baseCost = 3, attack = 5, health = 5}
 
 kingDumbo :: Card
-kingDumbo = Card KingDumbo 6 3 6 6
+kingDumbo = defCard {cardName = KingDumbo, cardTier = 6, baseCost = 3, attack = 6, health = 6}
 
 dummyWithALongNameItKeepsGoing :: Card
-dummyWithALongNameItKeepsGoing = Card DummyWithALongNameItKeepsGoing 1 3 1 1
+dummyWithALongNameItKeepsGoing = defCard {cardName = DummyWithALongNameItKeepsGoing, cardTier = 1, baseCost = 3, attack = 1, health = 1}

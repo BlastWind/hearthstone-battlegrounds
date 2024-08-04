@@ -1,8 +1,9 @@
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedRecordUpdate #-}
 {-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Combat where
 
 import Control.Monad.Random
@@ -10,9 +11,6 @@ import Data.Record.Overloading
 import Debug.Trace (trace)
 import Model
 import Utils (selectPlayer, updatePlayer)
-
--- New type for Attacker
-type Attacker = Contestant
 
 dealDmg :: Int -> (Health, Armor) -> (Health, Armor)
 dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
@@ -40,49 +38,58 @@ fight p1 p2 gs = do
 -- For now, the algorithm is wrong but simple:
 -- Players do alternate attacking, but the attacking and defending minions are both random.
 simulateCombat :: (MonadRandom m) => (Board, Board) -> m (CombatHistory, (Board, Board))
-simulateCombat initialState = do
-  attacker <- initialAttacker initialState
-  go attacker initialState [initialState] -- initial board is part of state
+simulateCombat initialState@(board1, board2) = do
+  (attacker, defender) <- initOrder initialState
+  let (attackingBoard, defendingBoard) = case (attacker, defender) of
+        (One, _) -> (board1, board2)
+        (Two, _) -> (board2, board1)
+  go
+    (CombatState (ContestantState attacker attackingBoard 0) (ContestantState defender defendingBoard 0))
+    [initialState] -- initial board is part of state
   where
-    go :: (MonadRandom m) => Attacker -> (Board, Board) -> CombatHistory -> m (CombatHistory, (Board, Board))
-    go attacker state@(board1,board2) history = do
-      -- Logically it makes sense to `clearTheDead` after `trade` and before next loop. But, we elect to `clearTheDead` right after the loop so dead minions get recorded in snapshot
-      let state'@(board1,board2) = clearTheDead (board1, board2)
-      if combatEnded state'
-        then return (reverse history, state')
-        else do
-          let (attackingBoard, defendingBoard) = case attacker of
-                One -> (board1, board2)
-                Two -> (board2, board1)
-          attackingMinionIndex <- getRandomR (0, length attackingBoard - 1)
-          defendingMinionIndex <- getRandomR (0, length defendingBoard - 1)
-          let attackingMinion = attackingBoard !! attackingMinionIndex
-              defendingMinion = defendingBoard !! defendingMinionIndex
-              (attacker', defender') = trade (attackingMinion, defendingMinion)
-              attackingBoard' = setAt attackingMinionIndex attacker' attackingBoard
-              defendingBoard' = setAt defendingMinionIndex defender' defendingBoard
-          let state'' = case attacker of
-                One -> (attackingBoard', defendingBoard')
-                Two -> (defendingBoard', attackingBoard')
-          go (alternate attacker) state'' (state'' : history)
+    go :: (MonadRandom m) => CombatState -> CombatHistory -> m (CombatHistory, (Board, Board))
+    go combatState history = undefined
+    --   -- Logically it makes sense to `clearTheDead` after `trade` and before next loop. But, we elect to `clearTheDead` right after the loop so dead minions get recorded in snapshot
+    --   let combatState' = clearTheDead combatState
+    --   if combatEnded combatState'
+    --     then return (reverse history, state')
+    --     else dow
+    --       let (attackingBoard, defendingBoard) = case attacker of
+    --             One -> (board1, board2)
+    --             Two -> (board2, board1)
+    --       attackingMinionIndex <- getRandomR (0, length attackingBoard - 1)
+    --       defendingMinionIndex <- getRandomR (0, length defendingBoard - 1)
+    --       let attackingMinion = attackingBoard !! attackingMinionIndex
+    --           defendingMinion = defendingBoard !! defendingMinionIndex
+    --           (attacker', defender') = trade (attackingMinion, defendingMinion)
+    --           attackingBoard' = setAt attackingMinionIndex attacker' attackingBoard
+    --           defendingBoard' = setAt defendingMinionIndex defender' defendingBoard
+    --       let state'' = case attacker of
+    --             One -> (attackingBoard', defendingBoard')
+    --             Two -> (defendingBoard', attackingBoard')
+    --       go combatState'' (state'' : history)
 
-    clearTheDead :: (Board, Board) -> (Board, Board)
-    clearTheDead (board1, board2) = both (filter (\ci -> ci.card.health > 0)) (board1, board2) 
+    -- clearTheDead :: CombatState -> CombatState
+    -- clearTheDead combatState =
+    --   combatState
+    --     { attacker.board = filter (\ci -> ci.card.health > 0) combatState.attacker.board,
+    --       defender.board = filter (\ci -> ci.card.health > 0) combatState.defender.board
+    --     }
 
-    both :: (a -> b) -> (a, a) -> (b, b)
-    both f (a, a') = (f a, f a')
+    -- combatEnded :: CombatState -> Bool
+    -- combatEnded combatState = null combatState.attacker.board || null combatState.defender.board
 
 alternate :: Contestant -> Contestant
 alternate One = Two
 alternate Two = One
 
-initialAttacker :: (MonadRandom m) => (Board, Board) -> m Attacker
-initialAttacker (board1, board2)
-  | length board1 > length board2 = return One
-  | length board2 > length board1 = return Two
+initOrder :: (MonadRandom m) => (Board, Board) -> m (Attacker, Defender)
+initOrder (board1, board2)
+  | length board1 > length board2 = return (One, Two)
+  | length board2 > length board1 = return (Two, One)
   | otherwise = do
       r <- getRandomR (0, 1) :: (MonadRandom m) => m Int
-      return $ if r == 0 then One else Two
+      return $ if r == 0 then (One, Two) else (Two, One)
 
 setAt :: Int -> a -> [a] -> [a]
 setAt i x xs = take i xs ++ [x] ++ drop (i + 1) xs
@@ -93,8 +100,7 @@ trade (attacker, defender) =
     defender {card.health = defender.card.health - attacker.card.attack}
   )
 
-combatEnded :: (Board, Board) -> Bool
-combatEnded (board1, board2) = null board1 || null board2
+
 
 calculateResult :: (Board, Board) -> CombatResult
 calculateResult (board1, board2)

@@ -37,7 +37,24 @@ type TavernTier = Int
 
 type CardCost = Int
 
-data CardName = Dummy | Dumber | TriDummy | Dumbo | BigDumbo | KingDumbo | DummyWithALongNameItKeepsGoing deriving (Show)
+data CardName
+  = PlaceHolder
+  | Skeleton
+  | HarmlessBonehead
+  | Dummy
+  | Dumber
+  | TriDummy
+  | Dumbo
+  | BigDumbo
+  | KingDumbo
+  | DummyWithALongNameItKeepsGoing
+  deriving (Show)
+
+instance Show CardAction where
+  show (GeneralUpdate _) = "GeneralUpdate <function>"
+  show x = show x
+
+data CardAction = Summon [Card] | GeneralUpdate (CombatState -> CombatState)
 
 {-# ANN type Card largeRecord #-}
 data Card = Card
@@ -45,7 +62,8 @@ data Card = Card
     cardTier :: TavernTier,
     baseCost :: CardCost,
     attack :: Attack,
-    health :: Health
+    health :: Health,
+    deathrattle :: [CardAction]
   }
   deriving (Show)
 
@@ -92,7 +110,20 @@ data CombatMove
   = Attack Int Int -- Player1's ith minion attacks Player2's jth minion;
   deriving (Show)
 
+type Attacker = Contestant
+
+type Defender = Contestant
+
+type NextAttackIndex = Int -- When player becomes Attacker, which of their minion attacks next?
+
+{-# ANN type ContestantState largeRecord #-}
+data ContestantState = ContestantState {contestant :: Contestant, board :: Board, nextAttackIndex :: NextAttackIndex} deriving (Show)
+
+{-# ANN type CombatState largeRecord #-}
+data CombatState = CombatState {attacker :: ContestantState, defender :: ContestantState} deriving (Show)
+
 data Contestant = One | Two deriving (Show, Eq)
+
 data CombatResult
   = Loss Contestant Damage -- loser
   | Tie
@@ -101,20 +132,6 @@ data CombatResult
 type Damage = Int
 
 type CombatHistory = [(Board, Board)]
-
-{-# ANN type Person largeRecord #-}
-data Person = Person
-  { name :: String,
-    age :: Int
-  }
-  deriving (Show, Eq)
-
-{-# ANN type Company largeRecord #-}
-data Company = Company
-  { nae :: String,
-    ceo :: Person
-  }
-  deriving (Show, Eq)
 
 {-# ANN type PlayerState largeRecord #-}
 data PlayerState = PlayerState
