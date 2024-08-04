@@ -1,24 +1,24 @@
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE DuplicateRecordFields  #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedRecordDot    #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedRecordUpdate #-}
-{-# LANGUAGE RebindableSyntax       #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
 
-
 module Model (module Model) where
-import Prelude
-import Data.UUID (UUID)
+
 import Data.Record.Plugin
+import Data.UUID (UUID)
+import Prelude
 
 {-
 Design Philosophy:
@@ -46,13 +46,15 @@ data Card = Card
     baseCost :: CardCost,
     attack :: Attack,
     health :: Health
-  } deriving Show
+  }
+  deriving (Show)
 
 {-# ANN type CardInstance largeRecord #-}
 data CardInstance = CardInstance
   { cardId :: UUID,
     card :: Card
-  } deriving Show
+  }
+  deriving (Show)
 
 type Gold = Int
 
@@ -70,43 +72,48 @@ type UserName = String
 
 data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Show, Eq)
 
-
 -- For now, GameState just keeps track of the solo player and one AI.
 data Player = Player | AI deriving (Show, Eq)
 
 {-# ANN type Config largeRecord #-}
-data Config = Config { maxBoardSize :: Int, maxHandSize :: Int } deriving Show
+data Config = Config {maxBoardSize :: Int, maxHandSize :: Int} deriving (Show)
 
 {-# ANN type CombatSimulation largeRecord #-}
-data CombatSimulation = CombatSimulation 
-  { combatMoves :: [CombatMove]
-  , boardSequences :: [(Board, Board)]
-  , result :: CombatResult 
-  } deriving Show
+data CombatSimulation = CombatSimulation
+  { combatMoves :: [CombatMove],
+    boardSequences :: [(Board, Board)],
+    result :: CombatResult
+  }
+  deriving (Show)
 
 -- TODO: The client can replay the same combat if provided the same seed
 -- However, for testing purposes, it will be nice to manually write out the attack sequence
-data CombatMove = 
-  Attack Int Int -- Player1's ith minion attacks Player2's jth minion; 
-  deriving Show
+data CombatMove
+  = Attack Int Int -- Player1's ith minion attacks Player2's jth minion;
+  deriving (Show)
 
 data Contestant = One | Two deriving (Show, Eq)
-data CombatResult = Loss Contestant Damage | Tie deriving (Show, Eq)
+data CombatResult
+  = Loss Contestant Damage -- loser
+  | Tie
+  deriving (Show, Eq)
+
 type Damage = Int
+
 type CombatHistory = [(Board, Board)]
 
 {-# ANN type Person largeRecord #-}
-data Person = Person {
-      name :: String
-    , age  :: Int
-    }
+data Person = Person
+  { name :: String,
+    age :: Int
+  }
   deriving (Show, Eq)
 
 {-# ANN type Company largeRecord #-}
-data Company = Company {
-      nae :: String
-    , ceo  :: Person
-    }
+data Company = Company
+  { nae :: String,
+    ceo :: Person
+  }
   deriving (Show, Eq)
 
 {-# ANN type PlayerState largeRecord #-}
@@ -124,7 +131,8 @@ data PlayerState = PlayerState
     alive :: Bool,
     rerollCost :: Gold,
     phase :: Phase
-  } deriving Show
+  }
+  deriving (Show)
 
 {-# ANN type GameState largeRecord #-}
 data GameState = GameState
@@ -132,7 +140,8 @@ data GameState = GameState
     aiState :: PlayerState,
     config :: Config,
     turn :: Turn
-  } deriving Show
+  }
+  deriving (Show)
 
 type Index = Int
 

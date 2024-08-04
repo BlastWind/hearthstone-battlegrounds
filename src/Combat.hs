@@ -45,16 +45,32 @@ simulateCombat initialState = do
   go attacker initialState [initialState] -- initial board is part of state
   where
     go :: (MonadRandom m) => Attacker -> (Board, Board) -> CombatHistory -> m (CombatHistory, (Board, Board))
-    go attacker state history = do
-      let state' = both (filter (\ci -> ci.card.health > 0)) state
+    go attacker state@(board1,board2) history = do
+      -- Logically it makes sense to `clearTheDead` after `trade` and before next loop. But, we elect to `clearTheDead` right after the loop so dead minions get recorded in snapshot
+      let state'@(board1,board2) = clearTheDead (board1, board2)
       if combatEnded state'
         then return (reverse history, state')
         else do
-          newState <- performAttack attacker state'
-          go (alternate attacker) newState (newState : history)
+          let (attackingBoard, defendingBoard) = case attacker of
+                One -> (board1, board2)
+                Two -> (board2, board1)
+          attackingMinionIndex <- getRandomR (0, length attackingBoard - 1)
+          defendingMinionIndex <- getRandomR (0, length defendingBoard - 1)
+          let attackingMinion = attackingBoard !! attackingMinionIndex
+              defendingMinion = defendingBoard !! defendingMinionIndex
+              (attacker', defender') = trade (attackingMinion, defendingMinion)
+              attackingBoard' = setAt attackingMinionIndex attacker' attackingBoard
+              defendingBoard' = setAt defendingMinionIndex defender' defendingBoard
+          let state'' = case attacker of
+                One -> (attackingBoard', defendingBoard')
+                Two -> (defendingBoard', attackingBoard')
+          go (alternate attacker) state'' (state'' : history)
 
-both :: (a -> b) -> (a, a) -> (b, b)
-both f (a, a') = (f a, f a')
+    clearTheDead :: (Board, Board) -> (Board, Board)
+    clearTheDead (board1, board2) = both (filter (\ci -> ci.card.health > 0)) (board1, board2) 
+
+    both :: (a -> b) -> (a, a) -> (b, b)
+    both f (a, a') = (f a, f a')
 
 alternate :: Contestant -> Contestant
 alternate One = Two
@@ -70,22 +86,6 @@ initialAttacker (board1, board2)
 
 setAt :: Int -> a -> [a] -> [a]
 setAt i x xs = take i xs ++ [x] ++ drop (i + 1) xs
-
-performAttack :: (MonadRandom m) => Attacker -> (Board, Board) -> m (Board, Board)
-performAttack attackerP (board1, board2) = do
-  let (attackingBoard, defendingBoard) = case attackerP of
-        One -> (board1, board2)
-        Two -> (board2, board1)
-  attackerIndex <- getRandomR (0, length attackingBoard - 1)
-  defenderIndex <- getRandomR (0, length defendingBoard - 1)
-  let attacker = attackingBoard !! attackerIndex
-      defender = defendingBoard !! defenderIndex
-      (attacker', defender') = trade (attacker, defender)
-      attackingBoard' = setAt attackerIndex attacker' attackingBoard
-      defendingBoard' = setAt defenderIndex defender' defendingBoard
-  return $ case attackerP of
-    One -> (attackingBoard', defendingBoard')
-    Two -> (defendingBoard', attackingBoard')
 
 trade :: (CardInstance, CardInstance) -> (CardInstance, CardInstance)
 trade (attacker, defender) =
