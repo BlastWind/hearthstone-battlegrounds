@@ -77,8 +77,7 @@ canTierUp ps = ps.curGold >= ps.tierUpCost
 randomShop :: (MonadRandom m) => TavernTier -> m [CardInstance]
 randomShop t = do
   shopCards <- sampleNFromList minionsInShop availableCards
-  ids <- replicateM minionsInShop getRandom
-  return [CardInstance uuid c | c <- shopCards | uuid <- ids]
+  return [CardInstance c | c <- shopCards]
   where
     minionsInShop = case t of
       1 -> 3

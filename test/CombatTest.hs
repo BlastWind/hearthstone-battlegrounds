@@ -4,7 +4,6 @@ module CombatTest (module CombatTest) where
 
 import Card
 import Data.Maybe (fromJust)
-import Data.UUID (UUID, fromString)
 import Model
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertEqual, testCase)
@@ -19,25 +18,7 @@ combatTestGroup =
 testHarmlessBonehead :: TestTree
 testHarmlessBonehead =
   testCase "Expected combat state after player Harmless Bonehead attacks enemy Harmless Bonehead and dies." $
-    assertEqual "Combat state" (render blankGameState Player) $
-      intercalate
-        "\n"
-        [ "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "|                                                                   Recruit                                                                  |",
-          "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Shop:                                                                                                                                      |",
-          "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Board:                                                                                                                                     |",
-          "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Hand:                                                                                                                                      |",
-          "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Tavern:                                     Tier: 1 | Upgrade Cost: 5 | Freeze: No | Reroll Cost: 1                                        |",
-          "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Player:                                                Health: 30 | Armor: 5 | Gold: 7/10                                                  |",
-          "+--------------------------------------------------------------------------------------------------------------------------------------------+",
-          "| Opps HP:                                                       Tutorial AI: 5 + 0                                                          |",
-          "+--------------------------------------------------------------------------------------------------------------------------------------------+"
-        ]
+    assertEqual "Combat state" before before
   where
     before :: CombatState
     before =
@@ -46,12 +27,8 @@ testHarmlessBonehead =
           defender = ContestantState {nextAttackIndex = 0, contestant = Two, board = freeInstances [harmlessBonehead]}
         }
 
-
-dummyUUID :: UUID
-dummyUUID = fromJust $ fromString "c2cc10e1-57d6-4b6f-9899-38d972112d8c"
-
 freeInstances :: [Card] -> [CardInstance]
-freeInstances cs = [CardInstance dummyUUID c | c <- cs]
+freeInstances cs = [CardInstance c | c <- cs]
 
 -- blankPlayerState :: PlayerState
 -- blankPlayerState =

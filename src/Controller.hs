@@ -88,15 +88,11 @@ playArgParser = do
 
 -- END --
 
-initGameState :: (MonadRandom m) => m GameState
-initGameState = do
-  tutorialAIGameState <- tutorialAI
-  return $ GameState {playerState = defPlayerState, aiState = tutorialAIGameState, turn = 0, config = Config {maxBoardSize = 7, maxHandSize = 10}}
+initGameState :: GameState
+initGameState = GameState {playerState = defPlayerState, aiState = tutorialAI, turn = 0, config = Config {maxBoardSize = 7, maxHandSize = 10}}
 
-tutorialAI :: (MonadRandom m) => m PlayerState
-tutorialAI = do
-  uuid <- getRandom
-  return $ defPlayerState {board = [CardInstance uuid bigDumbo], hp = 5}
+tutorialAI :: PlayerState
+tutorialAI = defPlayerState {board = [CardInstance bigDumbo], hp = 5}
 
 defPlayerState :: PlayerState
 defPlayerState =
@@ -118,8 +114,7 @@ defPlayerState =
 
 runGame :: IO ()
 runGame = do
-  gs <- initGameState
-  _ <- loop $ return gs
+  _ <- loop $ return initGameState
   putStrLn "Game Loop Completed."
   where
     -- Repeat Recruit and Combat until game over

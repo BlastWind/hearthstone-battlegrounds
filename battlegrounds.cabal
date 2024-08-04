@@ -51,7 +51,6 @@ library
     , random ==1.2.1.2
     , record-hasfield
     , text ==2.0.2
-    , uuid ==1.3.15
   default-language: Haskell2010
 
 executable battlegrounds-terminal
@@ -85,5 +84,4 @@ test-suite battlegrounds-test
     , containers ==0.6.7
     , tasty
     , tasty-hunit
-    , uuid ==1.3.15
   default-language: Haskell2010

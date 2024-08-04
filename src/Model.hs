@@ -17,7 +17,6 @@
 module Model (module Model) where
 
 import Data.Record.Plugin
-import Data.UUID (UUID)
 import Prelude
 
 {-
@@ -48,13 +47,9 @@ data CardName
   | BigDumbo
   | KingDumbo
   | DummyWithALongNameItKeepsGoing
-  deriving (Show)
+  deriving (Eq, Show)
 
-instance Show CardAction where
-  show (GeneralUpdate _) = "GeneralUpdate <function>"
-  show x = show x
-
-data CardAction = Summon [Card] | GeneralUpdate (CombatState -> CombatState)
+data CardAction = Summon [Card] deriving (Eq, Show)
 
 {-# ANN type Card largeRecord #-}
 data Card = Card
@@ -65,14 +60,14 @@ data Card = Card
     health :: Health,
     deathrattle :: [CardAction]
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 {-# ANN type CardInstance largeRecord #-}
 data CardInstance = CardInstance
-  { cardId :: UUID,
+  { 
     card :: Card
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 type Gold = Int
 
@@ -117,10 +112,10 @@ type Defender = Contestant
 type NextAttackIndex = Int -- When player becomes Attacker, which of their minion attacks next?
 
 {-# ANN type ContestantState largeRecord #-}
-data ContestantState = ContestantState {contestant :: Contestant, board :: Board, nextAttackIndex :: NextAttackIndex} deriving (Show)
+data ContestantState = ContestantState {contestant :: Contestant, board :: Board, nextAttackIndex :: NextAttackIndex} deriving (Eq, Show)
 
 {-# ANN type CombatState largeRecord #-}
-data CombatState = CombatState {attacker :: ContestantState, defender :: ContestantState} deriving (Show)
+data CombatState = CombatState {attacker :: ContestantState, defender :: ContestantState} deriving (Eq, Show)
 
 data Contestant = One | Two deriving (Show, Eq)
 
