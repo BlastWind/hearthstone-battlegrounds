@@ -17,6 +17,7 @@ module Logic (module Logic) where
 
 import Card (pool)
 import Control.Monad.Random
+import Data.List (foldl', mapAccumL)
 import Data.Record.Overloading
 import Model
 import Utils
@@ -28,10 +29,10 @@ execCommand (Sell ind) gs p = return $ sell ind (selectPlayer p gs) >>= (\ps' ->
 execCommand (Play ind) gs p = return $ play ind gs p >>= (\ps' -> Right $ updatePlayer p ps' gs)
 execCommand Help gs Player = liftIO (putStrLn helpMenu) >> pure (Right gs)
 execCommand Help gs AI = error "Dev Error: AI shouldn't issue `Help`."
-execCommand EndTurn gs Player = return $ Right gs { playerState.phase = Combat }
+execCommand EndTurn gs Player = return $ Right gs {playerState.phase = Combat}
 -- In tutorial mode, the single player issues the combat (on their will) and fights the AI always
 -- In multiplayer, the server issues the combat (by a timer) and pairs up who to fight
-execCommand EndTurn _ AI = error "Dev Error: AI really shouldn't issue `EndTurn`." 
+execCommand EndTurn _ AI = error "Dev Error: AI really shouldn't issue `EndTurn`."
 execCommand Roll gs p = do
   ps' <- roll $ selectPlayer p gs
   return $ liftM2 (updatePlayer p) ps' (return gs)
@@ -46,14 +47,16 @@ isGameOver gs = gs.playerState.alive /= gs.aiState.alive
 -- Performed when we first transition to a new game phase.
 replenish :: (MonadRandom m) => PlayerState -> m PlayerState
 replenish ps = do
-  newShop <- randomShop ps.tier
-  return ps
-    { phase = Recruit,
-      maxGold = ps.maxGold + 1,
-      curGold = ps.maxGold + 1,
-      frozen = False,
-      shop = if ps.frozen then ps.shop else newShop
-    }
+  (idGen', newShop) <- randomShop ps.idGen ps.tier
+  return
+    ps
+      { phase = Recruit,
+        maxGold = ps.maxGold + 1,
+        curGold = ps.maxGold + 1,
+        frozen = False,
+        shop = if ps.frozen then ps.shop else newShop,
+        idGen = idGen'
+      }
 
 -- START: Utility Methods for PlayerAction Functions --
 -- Determinisitc functions should only be used when the usage permits only the happy path
@@ -74,10 +77,19 @@ remove n (x : xs) = x : remove (n - 1) xs
 canTierUp :: PlayerState -> Bool
 canTierUp ps = ps.curGold >= ps.tierUpCost
 
-randomShop :: (MonadRandom m) => TavernTier -> m [CardInstance]
-randomShop t = do
+genId :: IdGen -> (IdGen, MinionID)
+genId gen = (IdGen {unIdGen = newId + 1}, newId)
+  where
+    newId = unIdGen gen
+
+genIds :: Int -> IdGen -> (IdGen, [MinionID])
+genIds n gen = mapAccumL (\gen _ -> genId gen) gen [1 .. n]
+
+randomShop :: (MonadRandom m) => IdGen -> TavernTier -> m (IdGen, [CardInstance])
+randomShop gen t = do
   shopCards <- sampleNFromList minionsInShop availableCards
-  return [CardInstance c | c <- shopCards]
+  let (gen', ids) = genIds minionsInShop gen
+  return (gen', [CardInstance c id | c <- shopCards | id <- ids])
   where
     minionsInShop = case t of
       1 -> 3
@@ -134,8 +146,8 @@ roll ps =
   if ps.curGold < ps.rerollCost
     then return $ Left "Attempted rollings without enough money"
     else do
-      newShop <- randomShop ps.tier
-      return $ Right $ ps {curGold = ps.curGold - 1, shop = newShop}
+      (idGen', newShop) <- randomShop ps.idGen ps.tier
+      return $ Right $ ps {curGold = ps.curGold - 1, shop = newShop, idGen = idGen'}
 
 -- Cost for going to the TavernTier
 baseTierUpCost :: TavernTier -> Int

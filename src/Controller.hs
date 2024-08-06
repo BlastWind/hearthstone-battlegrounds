@@ -109,7 +109,8 @@ defPlayerState =
       hp = 20,
       armor = 0,
       alive = True,
-      phase = Recruit
+      phase = Recruit,
+      idGen = IdGen 0
     }
 
 runGame :: IO ()

@@ -34,3 +34,14 @@ Taming `simulateCombat`. A few additions to make
 Today's goal: 
 - Get rid of cardId. I forgot why those were ever needed, but they are slowing progress.
 - Write tests for Harmless Bonehead, and then implement!
+
+I think since both Onyxia's whelp and Scallywag have the "attack immediately" keyword, it warrants a `AttackImmediately` keyword.
+When a minion with `AttackImmediately` is summoned, it is to perform an attack.
+
+### Aug 5, 2024
+How can I write tests?
+
+They need to fulfill two requirements:
+- Every thing that could be random may be controlled
+- If unspecified, choices fall back to random sourcing
+- Randomness are specified exactly where they are needed.
