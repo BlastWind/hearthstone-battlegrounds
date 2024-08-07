@@ -45,3 +45,13 @@ They need to fulfill two requirements:
 - Every thing that could be random may be controlled
 - If unspecified, choices fall back to random sourcing
 - Randomness are specified exactly where they are needed.
+
+### Aug 6, 2024
+To answer 8/5 questions: Write a full DSL and interpreter for all of the card effects. 
+During testing, override terms like `RandomIndex` to `SpecificIndex`.
+
+Refactoring: The API calls for many redesign opprotunities:
+1. Since `FighterState` provides `PlayerState`, no need for `combatBoard`.
+2. Need to seriously think about the pros and cons of the different CombatState designs.
+
+Today's result: Combat.hs typechecks. Claude suggests to refactor `CombatState` into a map of `{ One: one's fighterstate, Two: two's fighterstate }`

@@ -17,39 +17,33 @@ combatTestGroup =
 
 testHarmlessBonehead :: TestTree
 testHarmlessBonehead =
-  testCase "Expected combat state after player Harmless Bonehead attacks enemy Harmless Bonehead and dies." $
-    assertEqual "Combat state" before before
+  testCase "Expected combat state after player Harmless Bonehead attacks enemy Harmless Bonehead and dies." $ do
+    assertEqual
+      "Attack indices update correctly after bonehead death + summon, boneheads are the only minions."
+      after
+      (snipe 0 before)
+    assertEqual
+      "Attack indices update correctly after bonehead death + summon, when other minions exist before bonehead."
+      after'
+      (snipe 1 before')
   where
-    before :: CombatState
     before =
       CombatState
-        { attacker = ContestantState {nextAttackIndex = 0, contestant = One, board = freeInstances [harmlessBonehead]},
-          defender = ContestantState {nextAttackIndex = 0, contestant = Two, board = freeInstances [harmlessBonehead]}
+        { attacker = FighterState {nextAttackIndex = 0, fighter = One, board = [CardInstance harmlessBonehead]},
+          defender = FighterState {nextAttackIndex = 0, fighter = Two, board = [CardInstance harmlessBonehead]}
         }
-
-freeInstances :: [Card] -> [CardInstance]
-freeInstances cs = [CardInstance c | c <- cs]
-
--- blankPlayerState :: PlayerState
--- blankPlayerState =
---   PlayerState
---     { shop = [],
---       board = [],
---       hand = [],
---       frozen = False,
---       rerollCost = 1,
---       tierUpCost = 5,
---       hp = 30,
---       armor = 5,
---       curGold = 7,
---       maxGold = 10,
---       tier = 1,
---       phase = Recruit,
---       alive = True
---     }
-
--- blankAIState :: PlayerState
--- blankAIState = blankPlayerState {hp = 5, armor = 0}
-
--- blankGameState :: GameState
--- blankGameState = GameState {playerState = blankPlayerState, aiState = blankAIState, config = Config {maxBoardSize = 7, maxHandSize=10}, turn = 0}
+    after =
+      CombatState
+        { attacker = FighterState {nextAttackIndex = 0, fighter = One, board = [CardInstance skeleton, CardInstance skeleton]},
+          defender = FighterState {nextAttackIndex = 0, fighter = Two, board = [CardInstance skeleton, CardInstance skeleton]}
+        }
+    before' =
+      CombatState
+        { attacker = FighterState {nextAttackIndex = 1, fighter = One, board = [CardInstance dummy, CardInstance harmlessBonehead]},
+          defender = FighterState {nextAttackIndex = 1, fighter = Two, board = [CardInstance dummy, CardInstance harmlessBonehead]}
+        }
+    after' =
+      CombatState
+        { attacker = FighterState {nextAttackIndex = 1, fighter = One, board = [CardInstance dummy, CardInstance skeleton, CardInstance skeleton]},
+          defender = FighterState {nextAttackIndex = 1, fighter = Two, board = [CardInstance dummy, CardInstance skeleton, CardInstance skeleton]}
+        }

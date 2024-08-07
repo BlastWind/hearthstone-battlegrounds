@@ -49,7 +49,19 @@ data CardName
   | DummyWithALongNameItKeepsGoing
   deriving (Eq, Show)
 
-data CardAction = Summon [Card] deriving (Eq, Show)
+data Keyword = Deathrattle deriving (Eq, Show)
+data CardCriteria = SpecificCard Card | ByKeyword Keyword
+  deriving (Eq, Show)
+
+data TargetSelection = RandomTarget | LeftmostTarget | RightmostTarget | SpecificTarget Index
+  deriving (Eq, Show)
+
+data CombatEffectContext = CombatEffectContext {combatState :: CombatState, fromFighter :: Fighter, fromId :: MinionID}
+
+data CardEffect
+  = Summon CardCriteria
+  | DealDamage Int TargetSelection
+  deriving (Eq, Show)
 
 {-# ANN type Card largeRecord #-}
 data Card = Card
@@ -58,14 +70,18 @@ data Card = Card
     baseCost :: CardCost,
     attack :: Attack,
     health :: Health,
-    deathrattle :: [CardAction]
+    deathrattle :: [CardEffect]
   }
   deriving (Eq, Show)
 
+type MinionID = Int
+
+newtype IdGen = IdGen {unIdGen :: MinionID} deriving (Show)
+
 {-# ANN type CardInstance largeRecord #-}
 data CardInstance = CardInstance
-  { 
-    card :: Card
+  { card :: Card,
+    id :: MinionID
   }
   deriving (Eq, Show)
 
@@ -89,7 +105,7 @@ data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Show, Eq)
 data Player = Player | AI deriving (Show, Eq)
 
 {-# ANN type Config largeRecord #-}
-data Config = Config {maxBoardSize :: Int, maxHandSize :: Int} deriving (Show)
+data Config = Config {maxBoardSize :: Int, maxHandSize :: Int, maxCombatBoardSize :: Int} deriving (Show)
 
 {-# ANN type CombatSimulation largeRecord #-}
 data CombatSimulation = CombatSimulation
@@ -105,22 +121,22 @@ data CombatMove
   = Attack Int Int -- Player1's ith minion attacks Player2's jth minion;
   deriving (Show)
 
-type Attacker = Contestant
-
-type Defender = Contestant
-
 type NextAttackIndex = Int -- When player becomes Attacker, which of their minion attacks next?
 
-{-# ANN type ContestantState largeRecord #-}
-data ContestantState = ContestantState {contestant :: Contestant, board :: Board, nextAttackIndex :: NextAttackIndex} deriving (Eq, Show)
+{-# ANN type FighterState largeRecord #-}
+data FighterState = FighterState
+  { playerState :: PlayerState, -- so that we can perform effects (add cards to hand), deal damage to players, etc
+    nextAttackIndex :: NextAttackIndex
+  }
+  deriving (Show)
 
 {-# ANN type CombatState largeRecord #-}
-data CombatState = CombatState {attacker :: ContestantState, defender :: ContestantState} deriving (Eq, Show)
+data CombatState = CombatState {attacker :: Fighter, one :: FighterState, two :: FighterState, config :: Config} deriving (Show)
 
-data Contestant = One | Two deriving (Show, Eq)
+data Fighter = One | Two deriving (Show, Eq)
 
 data CombatResult
-  = Loss Contestant Damage -- loser
+  = Loss Fighter Damage -- loser
   | Tie
   deriving (Show, Eq)
 
@@ -142,7 +158,8 @@ data PlayerState = PlayerState
     armor :: Armor,
     alive :: Bool,
     rerollCost :: Gold,
-    phase :: Phase
+    phase :: Phase,
+    idGen :: IdGen
   }
   deriving (Show)
 
@@ -156,6 +173,10 @@ data GameState = GameState
   deriving (Show)
 
 type Index = Int
+
+type DefenderIndex = Index
+
+type AttackerIndex = Index
 
 data Command
   = Buy Index
