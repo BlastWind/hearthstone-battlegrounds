@@ -81,7 +81,9 @@ test-suite battlegrounds-test
   build-depends:
       base >=4.7 && <5
     , battlegrounds
-    , containers ==0.6.7
+    , large-generics ==0.2.2
+    , large-records ==0.4.1
+    , record-hasfield
     , tasty
     , tasty-hunit
   default-language: Haskell2010

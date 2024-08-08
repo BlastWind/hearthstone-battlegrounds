@@ -92,10 +92,10 @@ initGameState :: GameState
 initGameState = GameState {playerState = defPlayerState, aiState = tutorialAI, turn = 0, config = Config {maxBoardSize = 7, maxHandSize = 10}}
 
 tutorialAI :: PlayerState
-tutorialAI = defPlayerState {board = [CardInstance bigDumbo], hp = 5}
+tutorialAI = mainPlayerState {board = [CardInstance bigDumbo 0], hp = 5}
 
-defPlayerState :: PlayerState
-defPlayerState =
+mainPlayerState :: PlayerState
+mainPlayerState =
   PlayerState
     { tier = 1,
       maxGold = 300, -- By `enter`ing into the first turn, this becomes 3 as required.

@@ -76,7 +76,7 @@ data Card = Card
 
 type MinionID = Int
 
-newtype IdGen = IdGen {unIdGen :: MinionID} deriving (Show)
+newtype IdGen = IdGen {unIdGen :: MinionID} deriving (Eq, Show)
 
 {-# ANN type CardInstance largeRecord #-}
 data CardInstance = CardInstance
@@ -105,7 +105,7 @@ data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Show, Eq)
 data Player = Player | AI deriving (Show, Eq)
 
 {-# ANN type Config largeRecord #-}
-data Config = Config {maxBoardSize :: Int, maxHandSize :: Int, maxCombatBoardSize :: Int} deriving (Show)
+data Config = Config {maxBoardSize :: Int, maxHandSize :: Int, maxCombatBoardSize :: Int} deriving (Eq, Show)
 
 {-# ANN type CombatSimulation largeRecord #-}
 data CombatSimulation = CombatSimulation
@@ -128,10 +128,10 @@ data FighterState = FighterState
   { playerState :: PlayerState, -- so that we can perform effects (add cards to hand), deal damage to players, etc
     nextAttackIndex :: NextAttackIndex
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 {-# ANN type CombatState largeRecord #-}
-data CombatState = CombatState {attacker :: Fighter, one :: FighterState, two :: FighterState, config :: Config} deriving (Show)
+data CombatState = CombatState {attacker :: Fighter, one :: FighterState, two :: FighterState, config :: Config} deriving (Eq, Show)
 
 data Fighter = One | Two deriving (Show, Eq)
 
@@ -161,7 +161,25 @@ data PlayerState = PlayerState
     phase :: Phase,
     idGen :: IdGen
   }
-  deriving (Show)
+  deriving (Eq, Show)
+
+defPlayerState :: PlayerState
+defPlayerState = PlayerState {
+  tier = 0,
+  maxGold = 0, 
+  curGold = 0,
+  tierUpCost = 0,
+  shop = [],
+  frozen = False,
+  board = [],
+  hand = [],
+  hp = 10,
+  armor = 0,
+  alive = True,
+  rerollCost = 1,
+  phase = Recruit,
+  idGen = IdGen 0
+}
 
 {-# ANN type GameState largeRecord #-}
 data GameState = GameState
@@ -170,7 +188,7 @@ data GameState = GameState
     config :: Config,
     turn :: Turn
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 type Index = Int
 

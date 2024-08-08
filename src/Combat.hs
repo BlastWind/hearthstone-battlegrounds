@@ -79,14 +79,14 @@ turn di cs = (cs''', history)
           one.playerState.board = clearDeath cs''.one.playerState.board,
           two.playerState.board = clearDeath cs''.two.playerState.board
         }
-    history = map extractBoards [cs, cs''] ++ snapshots ++ [extractBoards cs''']
+    history = map extractBoards [cs, cs'] ++ [extractBoards cs'' | not (null snapshots)] ++ [extractBoards cs''']
 
 -- handleDeaths is recursive because certain deathrattles cause other minions to die.
 -- deathrattles are always handled in the order the minion died (and left-to-right on tie)
 handleDeaths :: CombatState -> (CombatState, CombatHistory)
 handleDeaths cs =
   if null (prepareDeathrattles cs)
-    then (cs', histories)
+    then (cs', [])
     else second (histories ++) (handleDeaths cs') -- keeping handling deaths if they come!
   where
     (cs', states) = mapAccumL (\cs' (fighter, id, eff) -> (interpCombatEffect (CombatEffectContext cs' fighter id) eff, cs')) cs (prepareDeathrattles cs)

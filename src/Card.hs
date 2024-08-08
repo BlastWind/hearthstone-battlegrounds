@@ -21,7 +21,7 @@ harmlessBonehead =
       baseCost = 3,
       attack = 1,
       health = 1,
-      deathrattle = [Summon skeleton, Summon skeleton]
+      deathrattle = [Summon (SpecificCard skeleton), Summon (SpecificCard skeleton)]
     }
 
 dummy :: Card

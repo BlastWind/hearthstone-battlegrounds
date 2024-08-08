@@ -72,6 +72,9 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - battlegrounds
-    - containers == 0.6.7
+    # - containers == 0.6.7
     - tasty
     - tasty-hunit
+    - large-generics == 0.2.2
+    - large-records == 0.4.1
+    - record-hasfield
