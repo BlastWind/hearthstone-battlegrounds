@@ -16,10 +16,12 @@ updateCard :: Card -> Card
 upgradeScope :: (Card -> Card) -> (GameState -> GameState)
 ```
 
+The `zoom` lens allows us to write this efficiently.
+
 ### Guiding Questions
 #### Modelling `Malchezaar`, `Seafarer`, `Bazaar Dealer`, `Chimera`, `Octosari`, `Felboar`, `Elise`? 
 
-The named minions are have special effects that also have the notion of "counters" to them.
+These minions are have special effects that also have the notion of "counters" to them.
 
 First, I write some algebraic laws:
 ```haskell
