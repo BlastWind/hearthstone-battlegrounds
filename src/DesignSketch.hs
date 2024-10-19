@@ -32,10 +32,17 @@ data CounterCriterion
 data Target
   = TShop Int
   | THand Int
-  -- Them Apples.
-  | TEntireShop
+  | -- Them Apples.
+    TEntireShop
 
 data TargetedEffect -- TODO: The idea of a target might be important.
+
+-- TODO: Something is missing.
+--
+
+data InjectAvatar cont
+  = QueryTier (Int -> cont)
+  | QueryHealth (Int -> cont)
 
 data StateEffect
   = -- E.g., Glim Guardian
@@ -67,7 +74,7 @@ data Functionality
   | OnKill [StateEffect]
   | OnSummon [StateEffect]
   | OnSell [StateEffect]
-  | StartOfCombat
+  | StartOfCombat [StateEffect]
   | Reborn
   | Windfury
   | -- phase=Recruit
@@ -82,7 +89,16 @@ data Functionality
 
 data Stats = Stats Int Int deriving (Eq)
 
-data CardName = GlimGuardian | HarmlessBonehead | CordPuller | Skeleton | Microbot | UpbeatFrontdrake | EnchantedLasso deriving (Eq)
+data CardName
+  = GlimGuardian
+  | HarmlessBonehead
+  | CordPuller
+  | Skeleton
+  | Microbot
+  | UpbeatFrontdrake
+  | EnchantedLasso
+  | MisfitDragonling
+  deriving (Eq)
 
 data Card = Card CardName Stats [Functionality] deriving (Eq)
 
@@ -110,8 +126,8 @@ upbeatFrontdrake = Card UpbeatFrontdrake (Stats 1 1) [Counter EndOfTurn 3 (GetRa
 enchantedLasso :: Card
 enchantedLasso = Card EnchantedLasso (Stats 0 0) [Battlecry (GetRandom [RTarget ShopRandom])]
 
-glimGuardianInst :: CardInstance
-glimGuardianInst = CardInstance glimGuardian
+misfitDragonling :: Card
+misfitDragonling = Card MisfitDragonling (Stats 2 1) [StartOfCombat [GainStats]]
 
 data GameState
   = GameState
