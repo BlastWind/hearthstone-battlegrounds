@@ -48,6 +48,7 @@ library:
   - large-generics == 0.2.2
   - large-records == 0.4.1
   - record-hasfield
+  - free == 5.2
 
 
 executables:

@@ -56,7 +56,7 @@ Refactoring: The API calls for many redesign opprotunities:
 
 Today's result: Combat.hs typechecks. Claude suggests to refactor `CombatState` into a map of `{ One: one's fighterstate, Two: two's fighterstate }`
 
-### Oct 13, 2024:
+### Oct 13, 2024: Rando Thoughts
 Been reading Granin's FDD book. Main question I'm having:
 1. What types can be "correct by construction"?
 
@@ -73,3 +73,25 @@ Questions from 8/5/2024 still persist:
 Thought: 
 
 Another question:
+
+### Oct 14, 2024:
+
+What if language is actually a continuation-based eDSL?
+
+```
+PickTarget (\target -> cont)
+Consume Target -- Somehow utilize "GainStats" here?
+
+
+```
+
+### Oct 19, 2024:
+I actually free-monadized a lot of the language!
+
+Design Challenge:
+- How to model "UpTo" and "AfterPlay" logic in one statement? 
+Snail Cavalry requires this, but with both `UpTo` and `AfterPlay` being
+`Functionalities`, they themselves do not compose.
+
+Resolution:
+- Split `Functionalities` into `KeywordFunctionality`, `EventFunctionality`, and `FunctionalityCombinator`.

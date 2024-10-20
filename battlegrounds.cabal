@@ -44,6 +44,7 @@ library
       MonadRandom
     , base >=4.7 && <5
     , containers ==0.6.7
+    , free ==5.2
     , large-generics ==0.2.2
     , large-records ==0.4.1
     , mtl ==2.3.1
