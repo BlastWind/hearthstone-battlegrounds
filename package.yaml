@@ -45,10 +45,12 @@ library:
   - parsec
   - pretty-simple
   - text == 2.0.2
+  - lens
   - large-generics == 0.2.2
   - large-records == 0.4.1
   - record-hasfield
   - free == 5.2
+  - effectful
 
 
 executables:

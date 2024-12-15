@@ -1,24 +1,14 @@
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE DuplicateRecordFields  #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedRecordDot    #-}
-{-# LANGUAGE OverloadedRecordUpdate #-}
-{-# LANGUAGE RebindableSyntax       #-}
-{-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
+
 
 module View (module View) where
 
-import Data.Record.Overloading
 import Control.Concurrent (threadDelay)
 import Control.Monad (forM_)
 import Data.List (intercalate)
 import Debug.Trace (trace)
 import Model
 import Utils (selectPlayer)
+import Control.Lens
 
 rowWidth :: Int
 rowWidth = 142
@@ -30,13 +20,13 @@ maxRowContentWidth :: Int
 maxRowContentWidth = length $ intercalate " | " $ replicate 7 "Rockpool Hunter" -- 123
 
 renderCard :: CardInstance -> String
-renderCard ci = abbrev maxCardNameDisplayLength (show ci.card.cardName) ++ "(" ++ show ci.card.attack ++ "/" ++ show ci.card.health ++ ")"
+renderCard ci = abbrev maxCardNameDisplayLength (show (ci ^. card . cardName)) ++ "(" ++ show (ci ^. card . attack) ++ "/" ++ show (ci ^. card . health) ++ ")"
 
 hBorder :: [Char]
 hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"
 
 endScreenMsg :: GameState -> String
-endScreenMsg gs = if gs.playerState.alive then "Victory! Ending now." else "You loss. Ending now."
+endScreenMsg gs = if gs ^. playerState . alive then "Victory! Ending now." else "You loss. Ending now."
 
 -- fmtRecruit creates the following string. In the example below, the names and entries are maxed out.
 -- I.e., 15 characters is the longest permitting name (Rockpool Hunter and playeracgodman1 have 15 chars). Shop and board have 7 entries max, hand has 10 max.
@@ -84,17 +74,17 @@ fmtRecruit gs p =
       ]
   where
     ps = selectPlayer p gs
-    shopCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- ps.shop]
-    boardCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- ps.board]
-    handCardNames = [(abbrev maxCardNameDisplayLength . show) cardInstance.card.cardName | cardInstance <- ps.hand]
-    freezeText = if ps.frozen then "Freeze: Yes" else "Freeze: No"
-    rerollCostText = "Reroll Cost: " ++ show ps.rerollCost
-    tierText = "Tier: " ++ show ps.tier
-    tierUpCostText = "Upgrade Cost: " ++ if ps.tier < 6 then show ps.tierUpCost else "-"
-    healthText = "Health: " ++ show ps.hp
-    armorText = "Armor: " ++ show ps.armor
-    goldText = "Gold: " ++ show ps.curGold ++ "/" ++ show ps.maxGold
-    oppInfoText = "Tutorial AI" ++ ": " ++ show gs.aiState.hp ++ " + " ++ show gs.aiState.armor
+    shopCardNames = [(abbrev maxCardNameDisplayLength . show) (cardInstance ^. card . cardName) | cardInstance <- ps ^. shop]
+    boardCardNames = [(abbrev maxCardNameDisplayLength . show) (cardInstance ^. card . cardName) | cardInstance <- ps ^. board]
+    handCardNames = [(abbrev maxCardNameDisplayLength . show) (cardInstance ^. card . cardName) | cardInstance <- ps ^. hand]
+    freezeText = if ps ^. frozen then "Freeze: Yes" else "Freeze: No"
+    rerollCostText = "Reroll Cost: " ++ show (ps ^. rerollCost)
+    tierText = "Tier: " ++ show (ps ^. tier)
+    tierUpCostText = "Upgrade Cost: " ++ if ps ^. tier < 6 then show (ps ^. tierUpCost) else "-"
+    healthText = "Health: " ++ show (ps ^. hp)
+    armorText = "Armor: " ++ show (ps ^. armor)
+    goldText = "Gold: " ++ show (ps ^. curGold) ++ "/" ++ show (ps ^. maxGold)
+    oppInfoText = "Tutorial AI" ++ ": " ++ show (gs ^. aiState . hp) ++ " + " ++ show (gs ^. aiState . armor)
 
 abbrev :: Int -> String -> String
 abbrev maxLen s =

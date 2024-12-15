@@ -1,15 +1,4 @@
 -- Controller: Handles input, game loop
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedRecordUpdate #-}
-{-# LANGUAGE RebindableSyntax #-}
-{-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
 
 module Controller (module Controller) where
 
@@ -28,6 +17,7 @@ import Text.Parsec.String (Parser)
 import Text.Pretty.Simple (pPrint, pShow)
 import Text.Read (readMaybe)
 import View
+import Control.Lens
 
 -- START: Functions for ingesting terminal input as PlayerAction --
 -- Examples:
@@ -89,28 +79,30 @@ playArgParser = do
 -- END --
 
 initGameState :: GameState
-initGameState = GameState {playerState = defPlayerState, aiState = tutorialAI, turn = 0, config = Config {maxBoardSize = 7, maxHandSize = 10}}
+initGameState = GameState {_playerState = defPlayerState, _aiState = tutorialAI, _turn = 0, _config = Config {_maxBoardSize = 7, _maxHandSize = 10}}
 
 tutorialAI :: PlayerState
-tutorialAI = mainPlayerState {board = [CardInstance bigDumbo 0], hp = 5}
+tutorialAI = mainPlayerState 
+  & board .~ [CardInstance bigDumbo 0]
+  & hp .~ 5
 
 mainPlayerState :: PlayerState
 mainPlayerState =
   PlayerState
-    { tier = 1,
-      maxGold = 300, -- By `enter`ing into the first turn, this becomes 3 as required.
-      curGold = 2,
-      tierUpCost = 6, -- By `enter`ing into the first turn, this becomes 5 as required.
-      rerollCost = 1,
-      shop = [],
-      board = [],
-      hand = [],
-      frozen = False,
-      hp = 20,
-      armor = 0,
-      alive = True,
-      phase = Recruit,
-      idGen = IdGen 0
+    { _tier = 1,
+      _maxGold = 300, -- By `enter`ing into the first turn, this becomes 3 as required.
+      _curGold = 2,
+      _tierUpCost = 6, -- By `enter`ing into the first turn, this becomes 5 as required.
+      _rerollCost = 1,
+      _shop = [],
+      _board = [],
+      _hand = [],
+      _frozen = False,
+      _hp = 20,
+      _armor = 0,
+      _alive = True,
+      _phase = Recruit,
+      _idGen = IdGen 0
     }
 
 runGame :: IO ()
@@ -122,30 +114,33 @@ runGame = do
     loop :: (MonadIO m, MonadRandom m) => m GameState -> m GameState
     loop mgs = do
       gs <- mgs
-      -- Go to EndScreen if applicable
-      let gs' = gs {playerState.phase = if isGameOver gs then EndScreen else gs.playerState.phase}
-      -- trace (TL.unpack $ pShow gs)
-      case gs'.playerState.phase of
+      let gs' = gs & playerState.phase %~ \p -> if isGameOver gs then EndScreen else p
+      
+      case gs' ^. playerState.phase of
         Recruit -> do
-          replenishedPlayer <- replenish gs'.playerState
-          replenishedAI <- replenish gs'.aiState
-          let gs'' = gs' {playerState = replenishedPlayer, aiState = replenishedAI}
+          replenishedPlayer <- replenish (gs' ^. playerState)
+          replenishedAI <- replenish (gs' ^. aiState)
+          let gs'' = gs' & playerState .~ replenishedPlayer 
+                        & aiState .~ replenishedAI
           recruitLoop gs'' >>= (loop . return)
+          
         Combat -> do
           (gs'', sim) <- fight Player AI gs'
           liftIO $ replayCombat 1 sim
-          liftIO flushInput -- ignore input entered during combat phase
+          liftIO flushInput
           liftIO $ putStrLn "finished playing"
-          loop $ return gs'' {playerState.phase = Recruit, aiState.phase = Recruit}
+          loop $ return $ gs'' & playerState.phase .~ Recruit 
+                              & aiState.phase .~ Recruit
+                              
         EndScreen -> do
-          -- Note EndScreen doesn't invoke `loop`. Game logic stops here.
           liftIO $ putStrLn $ endScreenMsg gs'
           return gs
+          
         _ -> error "Other phases not yet implemented"
 
 recruitLoop :: (MonadIO m, MonadRandom m) => GameState -> m GameState
 recruitLoop gs
-  | gs.playerState.phase == Recruit = do
+  | gs ^. playerState.phase == Recruit = do
       liftIO $ putStrLn $ fmtRecruit gs Player
       liftIO $ putStr "> "
       liftIO $ hFlush stdout

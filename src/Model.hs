@@ -1,23 +1,10 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedRecordUpdate #-}
-{-# LANGUAGE RebindableSyntax #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin=Data.Record.Plugin #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Model (module Model) where
 
-import Data.Record.Plugin
 import Prelude
+import Control.Lens
+import Control.Lens.TH
 
 {-
 Design Philosophy:
@@ -53,35 +40,33 @@ data Keyword = Deathrattle deriving (Eq, Show)
 data CardCriteria = SpecificCard Card | ByKeyword Keyword
   deriving (Eq, Show)
 
-data TargetSelection = RandomTarget | LeftmostTarget | RightmostTarget | SpecificTarget Index
+data TargetSelection = RandomTarget | LeftmostTarget | RightmostTarget | SpecificTarget Model.Index
   deriving (Eq, Show)
 
-data CombatEffectContext = CombatEffectContext {combatState :: CombatState, fromFighter :: Fighter, fromId :: MinionID}
+data CombatEffectContext = CombatEffectContext {_combatState :: CombatState, _fromFighter :: Fighter, _fromId :: MinionID}
 
 data CardEffect
   = Summon CardCriteria
   | DealDamage Int TargetSelection
   deriving (Eq, Show)
 
-{-# ANN type Card largeRecord #-}
 data Card = Card
-  { cardName :: CardName,
-    cardTier :: TavernTier,
-    baseCost :: CardCost,
-    attack :: Attack,
-    health :: Health,
-    deathrattle :: [CardEffect]
+  { _cardName :: CardName,
+    _cardTier :: TavernTier,
+    _baseCost :: CardCost,
+    _attack :: Attack,
+    _health :: Health,
+    _deathrattle :: [CardEffect]
   }
   deriving (Eq, Show)
 
 type MinionID = Int
 
-newtype IdGen = IdGen {unIdGen :: MinionID} deriving (Eq, Show)
+newtype IdGen = IdGen {_unIdGen :: MinionID} deriving (Eq, Show)
 
-{-# ANN type CardInstance largeRecord #-}
 data CardInstance = CardInstance
-  { card :: Card,
-    id :: MinionID
+  { _card :: Card,
+    _id :: MinionID
   }
   deriving (Eq, Show)
 
@@ -104,14 +89,12 @@ data Phase = HeroSelect | Recruit | Combat | EndScreen deriving (Show, Eq)
 -- For now, GameState just keeps track of the solo player and one AI.
 data Player = Player | AI deriving (Show, Eq)
 
-{-# ANN type Config largeRecord #-}
-data Config = Config {maxBoardSize :: Int, maxHandSize :: Int, maxCombatBoardSize :: Int} deriving (Eq, Show)
+data Config = Config {_maxBoardSize :: Int, _maxHandSize :: Int, _maxCombatBoardSize :: Int} deriving (Eq, Show)
 
-{-# ANN type CombatSimulation largeRecord #-}
 data CombatSimulation = CombatSimulation
-  { combatMoves :: [CombatMove],
-    boardSequences :: [(Board, Board)],
-    result :: CombatResult
+  { _combatMoves :: [CombatMove],
+    _boardSequences :: [(Board, Board)],
+    _result :: CombatResult
   }
   deriving (Show)
 
@@ -123,15 +106,13 @@ data CombatMove
 
 type NextAttackIndex = Int -- When player becomes Attacker, which of their minion attacks next?
 
-{-# ANN type FighterState largeRecord #-}
 data FighterState = FighterState
-  { playerState :: PlayerState, -- so that we can perform effects (add cards to hand), deal damage to players, etc
-    nextAttackIndex :: NextAttackIndex
+  { _fplayerState :: PlayerState, -- so that we can perform effects (add cards to hand), deal damage to players, etc
+    _nextAttackIndex :: NextAttackIndex
   }
   deriving (Eq, Show)
 
-{-# ANN type CombatState largeRecord #-}
-data CombatState = CombatState {attacker :: Fighter, one :: FighterState, two :: FighterState, config :: Config} deriving (Eq, Show)
+data CombatState = CombatState {_attacker :: Fighter, _one :: FighterState, _two :: FighterState, _cconfig :: Config} deriving (Eq, Show)
 
 data Fighter = One | Two deriving (Show, Eq)
 
@@ -144,65 +125,73 @@ type Damage = Int
 
 type CombatHistory = [(Board, Board)]
 
-{-# ANN type PlayerState largeRecord #-}
 data PlayerState = PlayerState
-  { tier :: TavernTier,
-    maxGold :: Gold,
-    curGold :: Gold,
-    tierUpCost :: Gold,
-    shop :: Shop,
-    board :: Board,
-    hand :: Hand,
-    frozen :: Bool,
-    hp :: Health,
-    armor :: Armor,
-    alive :: Bool,
-    rerollCost :: Gold,
-    phase :: Phase,
-    idGen :: IdGen
+  { _tier :: TavernTier,
+    _maxGold :: Gold,
+    _curGold :: Gold,
+    _tierUpCost :: Gold,
+    _shop :: Shop,
+    _board :: Board,
+    _hand :: Hand,
+    _frozen :: Bool,
+    _hp :: Health,
+    _armor :: Armor,
+    _alive :: Bool,
+    _rerollCost :: Gold,
+    _phase :: Phase,
+    _idGen :: IdGen
   }
   deriving (Eq, Show)
 
 defPlayerState :: PlayerState
 defPlayerState = PlayerState {
-  tier = 0,
-  maxGold = 0, 
-  curGold = 0,
-  tierUpCost = 0,
-  shop = [],
-  frozen = False,
-  board = [],
-  hand = [],
-  hp = 10,
-  armor = 0,
-  alive = True,
-  rerollCost = 1,
-  phase = Recruit,
-  idGen = IdGen 0
+  _tier = 0,
+  _maxGold = 0, 
+  _curGold = 0,
+  _tierUpCost = 0,
+  _shop = [],
+  _frozen = False,
+  _board = [],
+  _hand = [],
+  _hp = 10,
+  _armor = 0,
+  _alive = True,
+  _rerollCost = 1,
+  _phase = Recruit,
+  _idGen = IdGen 0
 }
 
-{-# ANN type GameState largeRecord #-}
 data GameState = GameState
-  { playerState :: PlayerState,
-    aiState :: PlayerState,
-    config :: Config,
-    turn :: Turn
+  { _playerState :: PlayerState,
+    _aiState :: PlayerState,
+    _config :: Config,
+    _turn :: Turn
   }
   deriving (Eq, Show)
 
 type Index = Int
 
-type DefenderIndex = Index
+type DefenderIndex = Model.Index
 
-type AttackerIndex = Index
+type AttackerIndex = Model.Index
 
 data Command
-  = Buy Index
-  | Sell Index
-  | Play Index
+  = Buy Model.Index
+  | Sell Model.Index
+  | Play Model.Index
   | Roll
   | TierUp
   | Freeze
   | EndTurn
   | Help
   | Concede
+
+-- Generate lenses for all records
+makeLenses ''Card
+makeLenses ''CardInstance  
+makeLenses ''PlayerState
+makeLenses ''GameState
+makeLenses ''Config
+makeLenses ''CombatState
+makeLenses ''CombatEffectContext
+makeLenses ''FighterState
