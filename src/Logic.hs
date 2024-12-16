@@ -1,18 +1,23 @@
 -- Logic: Handles recruit phase logic, executing user commands
 -- TODO: Modularize out the recruit logic, since Combat.hs is already separate.
 {-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Logic (module Logic) where
 
 import Card (pool)
-import Control.Monad.Random
+
 import Data.List (foldl', mapAccumL)
 import Model
 import Utils
 import View (helpMenu)
 import Control.Lens hiding (Index)
+import Effectful
+import Effect (RNG, getRandomR)
+import Control.Monad (replicateM, liftM2)
 
-execCommand :: (MonadIO m, MonadRandom m) => Command -> GameState -> Player -> m (Either String GameState)
+execCommand :: (IOE :> es, RNG :> es) => Command -> GameState -> Player -> Eff es (Either String GameState)
 execCommand (Buy ind) gs p = return $ buy ind gs p >>= (\ps' -> Right $ updatePlayer p ps' gs)
 execCommand (Sell ind) gs p = return $ sell ind (selectPlayer p gs) >>= (\ps' -> Right $ updatePlayer p ps' gs)
 execCommand (Play ind) gs p = return $ play ind gs p >>= (\ps' -> Right $ updatePlayer p ps' gs)
@@ -34,7 +39,7 @@ isGameOver :: GameState -> Bool
 isGameOver gs = gs ^. playerState . alive /= gs ^. aiState . alive
 
 -- Performed when we first transition to a new game phase.
-replenish :: (MonadRandom m) => PlayerState -> m PlayerState
+replenish :: (RNG :> es) => PlayerState -> Eff es PlayerState
 replenish ps = do
   (idGen', newShop) <- randomShop (ps ^. idGen) (ps ^. tier)
   return
@@ -74,7 +79,7 @@ genId gen = (IdGen {_unIdGen = newId + 1}, newId)
 genIds :: Int -> IdGen -> (IdGen, [MinionID])
 genIds n gen = mapAccumL (\gen _ -> genId gen) gen [1 .. n]
 
-randomShop :: (MonadRandom m) => IdGen -> TavernTier -> m (IdGen, [CardInstance])
+randomShop :: (RNG :> es) => IdGen -> TavernTier -> Eff es (IdGen, [CardInstance])
 randomShop gen t = do
   shopCards <- sampleNFromList minionsInShop availableCards
   let (gen', ids) = genIds minionsInShop gen
@@ -91,7 +96,7 @@ randomShop gen t = do
     availableCards :: [Card]
     availableCards = filter (\c -> c ^. cardTier <= t) pool
 
-sampleNFromList :: (MonadRandom m) => Int -> [a] -> m [a]
+sampleNFromList :: (RNG :> es) => Int -> [a] -> Eff es [a]
 sampleNFromList _ [] = return []
 sampleNFromList n xs = replicateM n sample
   where
@@ -130,7 +135,7 @@ sell ind ps
   | ind < 0 || ind >= length (ps ^. board) = Left "Out of bounds."
   | otherwise = Right ps {_curGold = ps ^. curGold + 1, _board = remove ind (ps ^. board)}
 
-roll :: (MonadRandom m) => PlayerState -> m (Either String PlayerState)
+roll :: (RNG :> es) => PlayerState -> Eff es (Either String PlayerState)
 roll ps =
   if ps ^. curGold < ps ^. rerollCost
     then return $ Left "Attempted rollings without enough money"

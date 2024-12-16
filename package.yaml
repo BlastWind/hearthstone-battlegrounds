@@ -41,7 +41,6 @@ library:
   - mtl == 2.3.1
   - containers == 0.6.7
   - random == 1.2.1.2
-  - MonadRandom
   - parsec
   - pretty-simple
   - text == 2.0.2

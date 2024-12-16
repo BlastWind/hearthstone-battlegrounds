@@ -1,7 +1,9 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
+
 module Combat where
 
 import Control.Lens hiding (Index)
-import Control.Monad.Random
 import Data.Bifunctor (Bifunctor (second))
 import Data.List (findIndex, mapAccumL)
 import Data.Maybe (fromJust)
@@ -9,6 +11,8 @@ import Debug.Trace (trace)
 import Logic (genId)
 import Model hiding (turn)
 import Utils (selectPlayer, updatePlayer)
+import Effectful (Eff, (:>))
+import Effect (RNG, getRandomR)
 
 dealDmg :: Int -> (Health, Armor) -> (Health, Armor)
 dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
@@ -17,7 +21,7 @@ dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
     hpDmg = n - armorDmg
 
 -- `fight` simulates the combat
-fight :: (MonadRandom m) => Player -> Player -> GameState -> m (GameState, CombatSimulation)
+fight :: (RNG :> es) => Player -> Player -> GameState -> Eff es (GameState, CombatSimulation)
 fight p1 p2 gs = do
   sequence <- simulateCombat p1 p2 gs
   let result = calculateResult (last sequence)
@@ -35,7 +39,7 @@ fight p1 p2 gs = do
                                  & alive .~ (hp' > 0)
       return (updatePlayer loser loserState' gs, sim)
 
-simulateCombat :: (MonadRandom m) => Player -> Player -> GameState -> m CombatHistory
+simulateCombat :: (RNG :> es) => Player -> Player -> GameState -> Eff es CombatHistory
 simulateCombat p1 p2 gs = do
   let (p1State, p2State) = (selectPlayer p1 gs, selectPlayer p2 gs)
   initialAttacker <- initAttacker (p1State ^. board) (p2State ^. board)
@@ -43,7 +47,7 @@ simulateCombat p1 p2 gs = do
     (CombatState initialAttacker (FighterState p1State 0) (FighterState p2State 0) (gs ^. config))
     [] -- initial board is part of state
   where
-    go :: (MonadRandom m) => CombatState -> CombatHistory -> m CombatHistory
+    go :: (RNG :> es) => CombatState -> CombatHistory -> Eff es CombatHistory
     go combatState history = do
       if combatEnded combatState
         then return history
@@ -150,12 +154,12 @@ alternate :: Fighter -> Fighter
 alternate One = Two
 alternate Two = One
 
-initAttacker :: (MonadRandom m) => Board -> Board -> m Fighter
+initAttacker :: (RNG :> es) => Board -> Board -> Eff es Fighter
 initAttacker board1 board2
   | length board1 > length board2 = return One
   | length board2 > length board1 = return Two
   | otherwise = do
-      r <- getRandomR (0, 1) :: (MonadRandom m) => m Int
+      r <- getRandomR (0, 1)
       return $ if r == 0 then One else Two
 
 calculateResult :: (Board, Board) -> CombatResult

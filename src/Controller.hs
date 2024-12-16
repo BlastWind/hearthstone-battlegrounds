@@ -1,11 +1,11 @@
 -- Controller: Handles input, game loop
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Controller (module Controller) where
 
 import Card (bigDumbo)
 import Combat (fight)
-import Control.Monad.Random (MonadIO, MonadRandom (getRandom), liftIO)
-import Data.Record.Overloading hiding (loop)
 import qualified Data.Text.Lazy as TL
 import Debug.Trace (trace, traceM)
 import GHC.Base (when)
@@ -18,7 +18,12 @@ import Text.Pretty.Simple (pPrint, pShow)
 import Text.Read (readMaybe)
 import View
 import Control.Lens
-
+import Effectful
+import Effectful.Error.Static
+import Effectful.State.Static.Local
+import Effectful.Dispatch.Dynamic
+import Effect
+import System.Random (newStdGen)
 -- START: Functions for ingesting terminal input as PlayerAction --
 -- Examples:
 -- b 1    -> Buy 1
@@ -107,11 +112,12 @@ mainPlayerState =
 
 runGame :: IO ()
 runGame = do
-  _ <- loop $ return initGameState
+  gen <- newStdGen
+  _ <- runEff . runRNG gen $ loop $ return initGameState
   putStrLn "Game Loop Completed."
   where
     -- Repeat Recruit and Combat until game over
-    loop :: (MonadIO m, MonadRandom m) => m GameState -> m GameState
+    loop :: (IOE :> es, RNG :> es) => Eff es GameState -> Eff es GameState
     loop mgs = do
       gs <- mgs
       let gs' = gs & playerState.phase %~ \p -> if isGameOver gs then EndScreen else p
@@ -138,9 +144,9 @@ runGame = do
           
         _ -> error "Other phases not yet implemented"
 
-recruitLoop :: (MonadIO m, MonadRandom m) => GameState -> m GameState
+recruitLoop :: (IOE :> es, RNG :> es) => GameState -> Eff es GameState
 recruitLoop gs
-  | gs ^. playerState.phase == Recruit = do
+  | (gs ^. playerState . phase) == Recruit = do
       liftIO $ putStrLn $ fmtRecruit gs Player
       liftIO $ putStr "> "
       liftIO $ hFlush stdout
