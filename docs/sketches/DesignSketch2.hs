@@ -3,10 +3,19 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
 
+module DesignSketch2 where
+  
 import Control.Monad.Except
-import Control.Monad.Random
 import Control.Monad.Reader
+import Effectful
+import Effectful.Error.Static
+import Effectful.Dispatch.Dynamic
 
 data Tribe = Murloc | Dragon | Demon | Elemental | Undead | Mech | Naga | MurlocDragon | All | SpellTODO deriving (Eq)
 
@@ -49,6 +58,7 @@ data CardName
   | BlazingSkyfin
   | AncestralAutomaton
   | BrannBronzebeard
+  | DummyCard
   deriving (Eq)
 
 data StateEffect
@@ -83,22 +93,22 @@ data KeywordFunctionality
   | DivineShield
   | Reborn
   | Windfury
-  | Deathrattle (forall m. (Avatar m) => m [StateEffect])
-  | StartOfCombat (forall m. (Avatar m) => m [StateEffect])
-  | Battlecry (forall m. (Avatar m) => m [StateEffect])
+  | Deathrattle (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | StartOfCombat (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | Battlecry (forall es. (Avatar :> es) => Eff es [StateEffect])
   | Spellcraft Card
 
 type Count = Int
 
 data EventFunctionality
-  = OnAttack (forall m. (Avatar m) => m [StateEffect])
-  | OnDamaged (forall m. (Avatar m) => m [StateEffect])
-  | OnKill (forall m. (Avatar m) => m [StateEffect])
-  | OnSell (forall m. (Avatar m) => m [StateEffect])
-  | AfterPlay (forall m. (Avatar m) => m [StateEffect])
-  | AfterSummon (forall m. (Avatar m) => m [StateEffect])
-  | AfterBattlecryTrigger (forall m. (Avatar m) => m [StateEffect])
-  | Every Count CounterType (forall m. (Avatar m) => m [StateEffect])
+  = OnAttack (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | OnDamaged (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | OnKill (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | OnSell (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | AfterPlay (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | AfterSummon (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | AfterBattlecryTrigger (forall es. (Avatar :> es) => Eff es [StateEffect])
+  | Every Count CounterType (forall es. (Avatar :> es) => Eff es [StateEffect])
 
 data FunctionalityCombinator
   = -- Per `Per`, run effect up to `Count` times.
@@ -118,13 +128,34 @@ data Card = Card
 
 data CardInstance = CardInstance {card :: Card, instanceId :: Int}
 
-class (Monad m, MonadError EffectError m) => Avatar m where
-  queryTier :: m Int
-  makeRandomCard :: [CardFilterCriterion] -> m CardInstance
-  targetRandomCard :: RandomTarget -> [CardFilterCriterion] -> m CardInstance
-  targetRandomCards :: RandomTarget -> [CardFilterCriterion] -> Int -> m [CardInstance]
-  retrieveAssociatedCard :: m CardInstance
-  retrieveBoard :: m [CardInstance]
+data Avatar :: Effect where
+  QueryTier :: Avatar m Int
+  MakeRandomCard :: [CardFilterCriterion] -> Avatar m CardInstance
+  TargetRandomCard :: RandomTarget -> [CardFilterCriterion] -> Avatar m CardInstance
+  TargetRandomCards :: RandomTarget -> [CardFilterCriterion] -> Int -> Avatar m [CardInstance]
+  RetrieveAssociatedCard :: Avatar m CardInstance
+  RetrieveBoard :: Avatar m [CardInstance]
+
+type instance DispatchOf Avatar = Dynamic
+
+
+queryTier :: Avatar :> es => Eff es Int
+queryTier = send QueryTier
+
+makeRandomCard :: Avatar :> es => [CardFilterCriterion] -> Eff es CardInstance
+makeRandomCard = send . MakeRandomCard
+
+targetRandomCard :: Avatar :> es => RandomTarget -> [CardFilterCriterion] -> Eff es CardInstance
+targetRandomCard target = send . TargetRandomCard target
+
+targetRandomCards :: Avatar :> es => RandomTarget -> [CardFilterCriterion] -> Int -> Eff es [CardInstance]
+targetRandomCards target criteria = send . TargetRandomCards target criteria
+
+retrieveAssociatedCard :: Avatar :> es => Eff es CardInstance
+retrieveAssociatedCard = send RetrieveAssociatedCard
+
+retrieveBoard :: Avatar :> es => Eff es [CardInstance]
+retrieveBoard = send RetrieveBoard
 
 data GameState = GameState {}
 

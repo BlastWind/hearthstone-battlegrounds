@@ -5,7 +5,7 @@ module DesignSketch (module DesignSketch) where
 
 import Control.Monad.Free
 
-data CardFilterCriterion = MaxTier Int | Tribe Tribe | IsMinion
+data CardFilterCriterion = MaxTier Int | Tribe Tribe | IsMinion | NotSelf
 
 data RandomTarget = Hand | Shop | Board
 
@@ -14,6 +14,8 @@ data InjectAvatarMethod next
   | MakeRandomCard [CardFilterCriterion] (CardInstance -> next)
   | TargetRandomCard RandomTarget [CardFilterCriterion] (Either EffectError CardInstance -> next)
   | TargetRandomCards RandomTarget [CardFilterCriterion] Int (Either EffectError [CardInstance] -> next)
+  | RetrieveAssociatedCard (CardInstance -> next)
+  | RetrieveBoard ([CardInstance] -> next)
   deriving (Functor)
 
 type InjectAvatar a = Free InjectAvatarMethod a
@@ -30,13 +32,24 @@ targetRandomCard randTarget crits = liftF $ TargetRandomCard randTarget crits id
 targetRandomCards :: RandomTarget -> [CardFilterCriterion] -> Int -> InjectAvatar (Either EffectError [CardInstance])
 targetRandomCards randomTarget crits count = liftF $ TargetRandomCards randomTarget crits count id
 
+retrieveAssociatedCard :: InjectAvatar CardInstance
+retrieveAssociatedCard = liftF $ RetrieveAssociatedCard id
+
+retrieveBoard :: InjectAvatar [CardInstance]
+retrieveBoard = liftF $ RetrieveBoard id
+
 data StateEffect
-  = -- E.g., Trusty Pup
+  = -- Stats that will be permanently gained even during combat. E.g., Trusty Pup
     GainPermStats Stats
-  | -- E.g., Stats gained during Combat (Glim Guardian); Spellcraft
+  | -- Stats that will be permanent if gained during recruit, and temporary if gained during combat. E.g., Blazing Skyfin
+    GainStats Stats
+  | -- Stats that is only temporarily gained no matter what. E.g., Spellcraft.
     GainTempStats Stats
-  | -- E.g., Ancestral Automaton, Eternal Knight, (Maybe) Deep Blue
-    GainBaseStats Stats
+  | -- Stats that is permanently gained for all future instances. E.g., Ancestral Automaton, Eternal Knight
+    GainStatsForAll Stats
+  | -- Reserved for deep blue. TODO: Is there a way to factor this into the current gain stat schemes?
+    GainStatsDeepBlue Stats
+  | GainTempTaunt
   | GainTaunt
   | -- E.g., Cord Puller
     Summon CardName
@@ -49,8 +62,10 @@ data StateEffect
   | Take CardInstance
   | -- E.g., Tavern Coin
     GainGold Int
+  | -- E.g., Brann, Dreamer's Embrace
+    TriggerBattlecry CardInstance
 
-data Tribe = Murloc | Dragon | Demon | Elemental | Undead | Mech | Naga | SpellTODO deriving (Eq)
+data Tribe = Murloc | Dragon | Demon | Elemental | Undead | Mech | Naga | MurlocDragon | All | SpellTODO deriving (Eq)
 
 data CounterType
   = -- Upbeat Frontdrake
@@ -80,15 +95,16 @@ data KeywordFunctionality
   | Spellcraft Card
 
 data EventFunctionality
-  = -- Events detectable by "inspecting" the card itself
+  = -- Self events: Detectable by "inspecting" the card itself
     OnAttack (InjectAvatar (Either EffectError [StateEffect]))
   | OnDamaged (InjectAvatar (Either EffectError [StateEffect]))
   | OnKill (InjectAvatar (Either EffectError [StateEffect]))
   | OnSell (InjectAvatar (Either EffectError [StateEffect]))
-  | -- Events that are detectable only by listening onto some other more "global" events
-    AfterPlay (Card -> Bool) (InjectAvatar (Either EffectError [StateEffect]))
-  | AfterSummon (Card -> Bool) (InjectAvatar (Either EffectError [StateEffect]))
-  | -- Every `count` times `counterType` happens, run effects
+  | -- Global events: Detectable by listening onto some other more "global" events
+    AfterPlay (InjectAvatar (Either EffectError [StateEffect]))
+  | AfterSummon (InjectAvatar (Either EffectError [StateEffect]))
+  | AfterBattlecryTrigger (InjectAvatar (Either EffectError [StateEffect])) -- due to cards like Rylak, Dreamer's Embrace, this needs its own event.
+  | -- Every `count` times `counterType` happens, run effects. `counterType` are more global events.
     Every Count CounterType (InjectAvatar (Either EffectError [StateEffect]))
 
 data FunctionalityCombinator
@@ -116,6 +132,10 @@ data CardName
   | DeepseaAngler
   | AnglersLure
   | SnailCavalry
+  | RecruitATrainee
+  | BlazingSkyfin
+  | AncestralAutomaton
+  | BrannBronzebeard
   deriving (Eq)
 
 data Card = Card
@@ -125,10 +145,13 @@ data Card = Card
     functionality :: [Functionality]
   }
 
-newtype CardInstance = CardInstance {card :: Card}
+data CardInstance = CardInstance {card :: Card, instanceId :: Int}
+
+instance Eq CardInstance where
+  a == b = instanceId a == instanceId b
 
 glimGuardian :: Card
-glimGuardian = Card GlimGuardian (Stats 1 4) Dragon [Event $ OnAttack (return $ Right [GainTempStats (Stats 2 1)])]
+glimGuardian = Card GlimGuardian (Stats 1 4) Dragon [Event $ OnAttack (return $ Right [GainStats (Stats 2 1)])]
 
 skeleton :: Card
 skeleton = Card Skeleton (Stats 1 1) Undead []
@@ -184,7 +207,7 @@ misfitDragonling =
         StartOfCombat
           ( do
               t <- queryTier
-              return $ Right [GainTempStats (Stats t t)]
+              return $ Right [GainStats (Stats t t)]
           )
     ]
 
@@ -199,7 +222,7 @@ anglersLure =
           ( return $
               Right
                 [ GainTempStats (Stats 0 2),
-                  GainTaunt
+                  GainTempTaunt
                 ]
           )
     ]
@@ -214,7 +237,18 @@ deepseaAngler =
     ]
 
 moltenRock :: Card
-moltenRock = Card MoltenRock (Stats 3 3) Elemental [Event $ AfterPlay (\card -> tribe card == Elemental) (return $ Right [GainPermStats (Stats 0 1)])]
+moltenRock =
+  Card
+    MoltenRock
+    (Stats 3 3)
+    Elemental
+    [ Event $
+        AfterPlay
+          ( do
+              c <- retrieveAssociatedCard
+              return $ Right [GainStats (Stats 0 1) | (tribe . card) c == Elemental]
+          )
+    ]
 
 pickyEater :: Card
 pickyEater =
@@ -226,7 +260,7 @@ pickyEater =
         Battlecry
           ( do
               toEat <- targetRandomCard Shop [IsMinion] -- pickEater's battlecry should fail if there is nothing to eat!
-              either (return . Left) (\ci -> return $ Right [RemoveFromShop ci, GainPermStats (stats (card ci))]) toEat
+              either (return . Left) (\ci -> return $ Right [RemoveFromShop ci, GainStats (stats (card ci))]) toEat
           )
     ]
 
@@ -240,6 +274,71 @@ snailCavalry =
         UpTo
           1
           PerRecruit
-          ( AfterPlay (\c -> tribe c == SpellTODO) (return $ Right [GainPermStats (Stats 1 1)])
+          ( AfterPlay
+              ( do
+                  c <- retrieveAssociatedCard
+                  return $ Right [GainStats (Stats 1 1) | (tribe . card) c == SpellTODO]
+              )
           )
     ]
+
+recruitATrainee :: Card
+recruitATrainee =
+  Card
+    RecruitATrainee
+    (Stats 0 0)
+    SpellTODO
+    [ Keyword $
+        Battlecry
+          ( do
+              c <- makeRandomCard [MaxTier 1]
+              return $ Right [AddToHand c]
+          )
+    ]
+
+blazingSkyfin :: Card
+blazingSkyfin =
+  Card
+    BlazingSkyfin
+    (Stats 2 4)
+    MurlocDragon
+    [ Event $
+        AfterBattlecryTrigger (return $ Right [GainStats (Stats 1 1)])
+    ]
+
+ancestralAutomaton :: Card
+ancestralAutomaton =
+  Card
+    AncestralAutomaton
+    (Stats 2 5)
+    Mech
+    [ Event $
+        AfterSummon
+          ( do
+              c <- retrieveAssociatedCard
+              return $ Right [GainPermStats (Stats 2 1) | cardName (card c) == AncestralAutomaton]
+          )
+    ]
+
+data Free' t a
+  = Pure' a -- Termination case
+  | Free' -- Recursive nesting of language, store an outer monadic action that keeps another continuation action inside.
+      ( t -- Algebra of the language
+          (Free' t a) -- Nested language in the free form.
+      )
+
+-- brannBronzebeard :: Card
+-- brannBronzebeard =
+--   Card
+--     BrannBronzebeard
+--     (Stats 2 4)
+--     Neutral
+--     [ Event $
+--         AfterBattlecryTrigger
+--           ( do
+--               c <- retrieveAssociatedCard
+--               b <- retrieveBoard
+--               -- Only do brann stuff if this is the first brann. Brann effects do not stack.
+--               return _
+--           )
+--     ]

@@ -11,6 +11,6 @@ when `Model.hs` is open.
 
 ### Roadmap
 1. [x] Basic Game Loop.
-2. [ ] Support all Tier 1 cards. The hardest to implement would be Scallywag.
+2. [ ] Support the follow cards in this order: A God Card (responds to all events), Harmless Bonehead, Picky Eater, Upbeat Frontdrake, Dune Dweller
 3. [ ] Support all cards, completing the single player mode experience.
 4. [ ] Server, game rooms, authentication.

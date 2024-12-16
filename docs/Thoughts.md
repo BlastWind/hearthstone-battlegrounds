@@ -95,3 +95,40 @@ Snail Cavalry requires this, but with both `UpTo` and `AfterPlay` being
 
 Resolution:
 - Split `Functionalities` into `KeywordFunctionality`, `EventFunctionality`, and `FunctionalityCombinator`.
+
+### Oct 21, 2024:
+Question: How to model Brann?
+
+Idea 1: `AfterBattlecryTrigger`. But this would require `AfterBattlecryTrigger` to pass in the `TriggeredBattlecry`, and a new `TriggerBattlecry` state effect.
+
+Idea 2: Reserved `BrannFunctionality`. 
+
+Idea 3: Reserved `Trigger Battlecry Times` constructor for `Functionality`.
+
+Idea 4: The game logic keeps an priority queue for how many times do battlecries get triggered,
+it's a priority queue because the highest trigger count is used. Brann, upon entering the board,
+inserts "twice" into the battlecry priority queue. On leave, it deletes *some* "Battlecry twice" node.
+
+### Oct 26, 2024:
+Problem: `retrieveAssociatedCard` is not good correctness by modeling since 
+a lot of events are not associated cards.
+
+Solution:
+#1: For events, it probably makes the most sense to just pass the associated card
+#2: To be fancy, we could associate `retrieveAssociatedCard` with a typeclass that
+only `EventFunctionalities` get access to. That still seems too much though.
+
+----
+
+Idea: What if I free monadized the design sketch more and delistified the `[Functionality]` that is bound to a `Card`?
+
+----
+
+Idea: What if every Functionality is its own datatype? And, whether or not
+it is associated with "keyword", "event", or is a "combinator" 
+will be described by a `Has` or `Is` style typeclass?
+
+--- 
+
+Key question: Battlecry effects sometimes have a target, but this target gets
+randomized if the effect is to be triggered. How to model this scenario?
