@@ -1,42 +1,38 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- Logic: Handles recruit phase logic, executing user commands
 -- TODO: Modularize out the recruit logic, since Combat.hs is already separate.
 {-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Logic (module Logic) where
 
 import Card (pool)
-
-import Data.List (foldl', mapAccumL)
-import Model
-import Utils
-import View (helpMenu)
-import Control.Lens hiding (Index)
-import Effectful
+import Control.Lens (At (at), Ixed (ix), traversed, (&), (.~), (<&>), (^.))
+import Control.Monad (replicateM)
+import Data.List (mapAccumL)
+import Data.Map (elems, toList, (!))
 import Effect (RNG, getRandomR)
-import Control.Monad (replicateM, liftM2)
+import Effectful (Eff, IOE, MonadIO (liftIO), type (:>))
+import Effectful.State.Static.Local
+import Model
+import View (helpMenu)
 
-execCommand :: (IOE :> es, RNG :> es) => Command -> GameState -> Player -> Eff es (Either String GameState)
-execCommand (Buy ind) gs p = return $ buy ind gs p >>= (\ps' -> Right $ updatePlayer p ps' gs)
-execCommand (Sell ind) gs p = return $ sell ind (selectPlayer p gs) >>= (\ps' -> Right $ updatePlayer p ps' gs)
-execCommand (Play ind) gs p = return $ play ind gs p >>= (\ps' -> Right $ updatePlayer p ps' gs)
-execCommand Help gs Player = liftIO (putStrLn helpMenu) >> pure (Right gs)
-execCommand Help gs AI = error "Dev Error: AI shouldn't issue `Help`."
-execCommand EndTurn gs Player = return $ Right gs { _playerState = (gs ^. playerState) { _phase = Combat } }
--- In tutorial mode, the single player issues the combat (on their will) and fights the AI always
--- In multiplayer, the server issues the combat (by a timer) and pairs up who to fight
-execCommand EndTurn _ AI = error "Dev Error: AI really shouldn't issue `EndTurn`."
-execCommand Roll gs p = do
-  ps' <- roll $ selectPlayer p gs
-  return $ liftM2 (updatePlayer p) ps' (return gs)
-execCommand TierUp gs p = return $ tierUp (selectPlayer p gs) >>= (\ps' -> Right $ updatePlayer p ps' gs)
-execCommand Freeze gs p = return $ freeze (selectPlayer p gs) >>= (\ps' -> Right $ updatePlayer p ps' gs)
-execCommand Concede gs p = return $ concede (selectPlayer p gs) >>= (\ps' -> Right $ updatePlayer p ps' gs)
+type ErrorString = String
+
+execCommand :: (IOE :> es, RNG :> es, State GameState :> es) => Command -> PlayerId -> Eff es (Maybe ErrorString)
+execCommand (Buy ind) pId = buy ind pId
+execCommand (Sell ind) pId = sell ind pId
+execCommand (Play ind) pId = play ind pId
+execCommand Help _ = liftIO (putStrLn helpMenu) >> return Nothing
+execCommand EndTurn _ = endturn
+execCommand Roll pId = roll pId
+execCommand TierUp pId = tierUp pId
+execCommand Freeze pId = freeze pId
+execCommand Concede pId = concede pId
 
 -- Game over if exactly one player is alive
 isGameOver :: GameState -> Bool
-isGameOver gs = gs ^. playerState . alive /= gs ^. aiState . alive
+isGameOver gs = length (filter (^. alive) (elems $ gs ^. playerMap)) <= 1
 
 -- Performed when we first transition to a new game phase.
 replenish :: (RNG :> es) => PlayerState -> Eff es PlayerState
@@ -65,8 +61,9 @@ findCard ind instances = instances !! ind
 
 remove :: Int -> [a] -> [a]
 remove _ [] = []
-remove 0 (_ : xs) = xs
-remove n (x : xs) = x : remove (n - 1) xs
+remove n xs | n < 0 = xs  -- Handle negative indices
+remove n xs | n >= length xs = xs  -- Handle out of bounds
+remove n xs = take n xs ++ drop (n + 1) xs
 
 canTierUp :: PlayerState -> Bool
 canTierUp ps = ps ^. curGold >= ps ^. tierUpCost
@@ -107,41 +104,63 @@ sampleNFromList n xs = replicateM n sample
 -- END --
 
 -- START: Functions that Command maps to --
-play :: Index -> GameState -> Player -> Either String PlayerState
-play ind gs p
-  | ind < 0 || ind >= length (ps ^. hand) || length (ps ^. board) >= gs ^. config . maxBoardSize = Left "Out of bounds."
-  | otherwise = Right ps {_board = ps ^. board ++ [findCard ind (ps ^. hand)], _hand = remove ind (ps ^. hand)}
-  where
-    ps = selectPlayer p gs
-
-buy :: Index -> GameState -> Player -> Either String PlayerState
-buy ind gs p
-  | shopSize == 0 = Left "Cannot buy. Your shop is empty."
-  | length (ps ^. hand) >= gs ^. config . maxHandSize = Left "Your hand is full"
-  | ind < 0 || ind >= shopSize = Left "Out of bounds."
-  | cost > moneyLeft =
-      Left "Attempted buying without enough money."
-  | otherwise =
-      Right ps {_curGold = moneyLeft - cost, _shop = remove ind (ps ^. shop), _hand = ps ^. hand ++ [cardInstance]}
-  where
-    ps = selectPlayer p gs
-    cardInstance = findCard ind (ps ^. shop)
-    cost = cardInstance ^. card . baseCost
-    moneyLeft = ps ^. curGold
-    shopSize = length (ps ^. shop)
-
-sell :: Index -> PlayerState -> Either String PlayerState
-sell ind ps
-  | ind < 0 || ind >= length (ps ^. board) = Left "Out of bounds."
-  | otherwise = Right ps {_curGold = ps ^. curGold + 1, _board = remove ind (ps ^. board)}
-
-roll :: (RNG :> es) => PlayerState -> Eff es (Either String PlayerState)
-roll ps =
-  if ps ^. curGold < ps ^. rerollCost
-    then return $ Left "Attempted rollings without enough money"
+play :: (State GameState :> es) => Index -> PlayerId -> Eff es (Maybe ErrorString)
+play ind pId = do
+  gs <- get
+  let ps = (gs ^. playerMap) ! pId
+  if ind < 0 || ind >= length (ps ^. hand) || length (ps ^. board) >= gs ^. config . maxBoardSize
+    then return $ Just "Out of bounds."
     else do
-      (idGen', newShop) <- randomShop (ps ^. idGen) (ps ^. tier)
-      return $ Right $ ps {_curGold = ps ^. curGold - 1, _shop = newShop, _idGen = idGen'}
+      put $ gs & playerMap . ix pId .~ ps {_board = ps ^. board ++ [findCard ind (ps ^. hand)], _hand = remove ind (ps ^. hand)}
+      return Nothing
+
+buy :: (State GameState :> es) => Index -> PlayerId -> Eff es (Maybe ErrorString)
+buy ind pId = do
+  gs <- get
+  let ps = (gs ^. playerMap) ! pId
+      cardInstance = findCard ind (ps ^. shop)
+      cost = cardInstance ^. card . baseCost
+      moneyLeft = ps ^. curGold
+      shopSize = length (ps ^. shop)
+      ps' = ps {_curGold = moneyLeft - cost, _shop = remove ind (ps ^. shop), _hand = ps ^. hand ++ [cardInstance]}
+  case () of
+    _
+      | shopSize == 0 -> return $ Just "Cannot buy. Your shop is empty."
+      | length (ps ^. hand) >= gs ^. config . maxHandSize -> return $ Just "Your hand is full."
+      | ind < 0 || ind >= shopSize -> return $ Just "Out of bounds."
+      | cost > moneyLeft -> return $ Just "Attempted buying without enough money."
+      | otherwise -> do
+          put $ gs & playerMap . ix pId .~ ps'
+          return Nothing
+
+sell :: (State GameState :> es) => Index -> PlayerId -> Eff es (Maybe ErrorString)
+sell ind pId = do
+  gs <- get
+  let ps = (gs ^. playerMap) ! pId
+  case () of
+    _
+      | ind < 0 || ind >= length (ps ^. board) -> return $ Just "Out of bounds."
+      | otherwise -> do
+          put $ gs & playerMap . ix pId .~ ps {_curGold = ps ^. curGold + 1, _board = remove ind (ps ^. board)}
+          return Nothing
+
+roll :: (State GameState :> es, RNG :> es) => PlayerId -> Eff es (Maybe ErrorString)
+roll pId = do
+  gs <- get
+  let ps = (gs ^. playerMap) ! pId
+  case () of
+    _
+      | ps ^. curGold < ps ^. rerollCost -> return $ Just "Attempted rollings without enough money"
+      | otherwise -> do
+          (idGen', newShop) <- randomShop (ps ^. idGen) (ps ^. tier)
+          put $ gs & playerMap . ix pId .~ ps {_curGold = ps ^. curGold - 1, _shop = newShop, _idGen = idGen'}
+          return Nothing
+
+endturn :: (State GameState :> es) => Eff es (Maybe ErrorString)
+endturn = do
+  gs <- get
+  put $ gs & playerMap . traversed . phase .~ Combat
+  return Nothing
 
 -- Cost for going to the TavernTier
 baseTierUpCost :: TavernTier -> Int
@@ -153,20 +172,34 @@ baseTierUpCost t = case t of
   6 -> 10
   _ -> error "Tier Up to 7 is not possible for now. So, `baseTierUpCost` shouldn't have been queried"
 
-tierUp :: PlayerState -> Either String PlayerState
-tierUp ps
-  | ps ^. tier == 6 = Left "Attempted to tier up but already on Tavern 6"
-  | ps ^. curGold < ps ^. tierUpCost = Left "Attempted tier up without enough money"
-  | otherwise = return $ ps {_curGold = ps ^. curGold - ps ^. tierUpCost, _tier = newTier, _tierUpCost = if newTier == 6 then 10000 else baseTierUpCost (newTier + 1)}
-  where
-    newTier = ps ^. tier + 1
+tierUp :: (State GameState :> es) => PlayerId -> Eff es (Maybe ErrorString)
+tierUp pId = do
+  gs <- get
+  let ps = (gs ^. playerMap) ! pId
+  let oldTier = ps ^. tier
+  let newTier = oldTier + 1
+  case () of
+    _
+      | oldTier == 6 -> return $ Just "Attempted to tier up but already on Tavern 6"
+      | (ps ^. curGold) < (ps ^. tierUpCost) -> return $ Just "Attempted tier up without enough money"
+      | otherwise -> do
+          put $ gs & playerMap . ix pId .~ ps {_curGold = ps ^. curGold - ps ^. tierUpCost, _tier = newTier, _tierUpCost = if newTier == 6 then 10000 else baseTierUpCost (newTier + 1)}
+          return Nothing
 
 -- toggle frozen
-freeze :: PlayerState -> Either String PlayerState
-freeze ps = return ps {_frozen = not (ps ^. frozen)}
+freeze :: (State GameState :> es) => PlayerId -> Eff es (Maybe ErrorString)
+freeze pId = do
+  gs <- get
+  let ps = (gs ^. playerMap) ! pId
+  put $ gs & playerMap . ix pId .~ ps {_frozen = not (ps ^. frozen)}
+  return Nothing
 
 -- Kill player and move their render screen to the EndScreen
-concede :: PlayerState -> Either String PlayerState
-concede ps = return ps {_alive = False}
+concede :: (State GameState :> es) => PlayerId -> Eff es (Maybe ErrorString)
+concede pId = do
+  gs <- get
+  let ps = (gs ^. playerMap) ! pId
+  put $ gs & playerMap . ix pId .~ ps {_alive = False}
+  return Nothing
 
 -- END --

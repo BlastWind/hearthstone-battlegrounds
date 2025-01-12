@@ -3,6 +3,11 @@
 module Card (module Card) where
 
 import Model
+  ( Card (..),
+    CardCriteria (..),
+    CardEffect (..),
+    CardName (..),
+  )
 
 pool :: [Card]
 pool = [dummy, dumber, triDummy, dumbo, bigDumbo, kingDumbo]

@@ -31,7 +31,6 @@ library
       Effect
       Logic
       Model
-      Utils
       View
   other-modules:
       Paths_battlegrounds

@@ -1,18 +1,19 @@
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Combat where
 
 import Control.Lens hiding (Index)
 import Data.Bifunctor (Bifunctor (second))
 import Data.List (findIndex, mapAccumL)
+import Data.Map ((!))
 import Data.Maybe (fromJust)
 import Debug.Trace (trace)
+import Effect (RNG, getRandomR)
+import Effectful (Eff, (:>))
 import Logic (genId)
 import Model hiding (turn)
-import Utils (selectPlayer, updatePlayer)
-import Effectful (Eff, (:>))
-import Effect (RNG, getRandomR)
+import Effectful.State.Static.Local
 
 dealDmg :: Int -> (Health, Armor) -> (Health, Armor)
 dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
@@ -21,31 +22,39 @@ dealDmg n (hp, armor) = (hp - hpDmg, armor - armorDmg)
     hpDmg = n - armorDmg
 
 -- `fight` simulates the combat
-fight :: (RNG :> es) => Player -> Player -> GameState -> Eff es (GameState, CombatSimulation)
-fight p1 p2 gs = do
-  sequence <- simulateCombat p1 p2 gs
+fight :: (State GameState :> es, RNG :> es) => (PlayerId, PlayerId) -> Eff es CombatSimulation
+fight (p1Id, p2Id) = do
+  gs <- get
+  let p1State = (gs ^. playerMap) ! p1Id
+  let p2State = (gs ^. playerMap) ! p2Id
+  sequence <- simulateCombat (p1Id, p2Id)
   let result = calculateResult (last sequence)
   let sim = CombatSimulation [] sequence result
   case result of
-    Tie -> return (gs, sim)
+    Tie -> return sim
     Loss fighter dmg -> do
-      let loser = case fighter of
-            One -> Player
-            Two -> AI
-          loserState = selectPlayer loser gs
+      let (loserId, loserState) = case fighter of
+            One -> (p1Id, p1State)
+            Two -> (p2Id, p2State)
           (hp', armor') = dealDmg dmg (loserState ^. hp, loserState ^. armor)
-          loserState' = loserState & hp .~ hp'
-                                 & armor .~ armor'
-                                 & alive .~ (hp' > 0)
-      return (updatePlayer loser loserState' gs, sim)
+          loserState' =
+            loserState
+              & hp .~ hp'
+              & armor .~ armor'
+              & alive .~ (hp' > 0)
+      put $ gs & playerMap . ix loserId .~ loserState'
+      return sim
 
-simulateCombat :: (RNG :> es) => Player -> Player -> GameState -> Eff es CombatHistory
-simulateCombat p1 p2 gs = do
-  let (p1State, p2State) = (selectPlayer p1 gs, selectPlayer p2 gs)
+simulateCombat :: (State GameState :> es, RNG :> es) => (PlayerId, PlayerId) -> Eff es CombatHistory
+simulateCombat (p1Id, p2Id) = do
+  gs <- get
+  let p1State = (gs ^. playerMap) ! p1Id
+  let p2State = (gs ^. playerMap) ! p2Id
   initialAttacker <- initAttacker (p1State ^. board) (p2State ^. board)
+
   go
     (CombatState initialAttacker (FighterState p1State 0) (FighterState p2State 0) (gs ^. config))
-    [] -- initial board is part of state
+    [(p1State ^. board, p2State ^. board)] -- initial board is part of state
   where
     go :: (RNG :> es) => CombatState -> CombatHistory -> Eff es CombatHistory
     go combatState history = do
@@ -60,9 +69,8 @@ simulateCombat p1 p2 gs = do
           go combatState' (history ++ newHistorySlices)
 
     combatEnded :: CombatState -> Bool
-    combatEnded combatState = 
-      null (combatState ^. one . fplayerState . board) || 
-      null (combatState ^. two . fplayerState . board)
+    combatEnded cs =
+      null (cs ^. one . fplayerState . board) || null (cs ^. two . fplayerState . board)
 
 turn ::
   DefenderIndex -> -- Since the caller of `turn` specifies the `di`, testing single turns is easy.
@@ -75,14 +83,13 @@ turn di cs = (cs''', history)
       Two -> (cs ^. two, cs ^. one)
     cs' = trade (attackingState ^. nextAttackIndex) di cs
     (cs'', snapshots) = handleDeaths cs' -- `handleDeath` does not clean the battleground (clear deaths)
-    cs''' = cs''
-      & attacker .~ alternate (cs'' ^. attacker)
-      & one . fplayerState . board .~ clearDeath (cs'' ^. one . fplayerState . board)
-      & two . fplayerState . board .~ clearDeath (cs'' ^. two . fplayerState . board)
+    cs''' =
+      cs''
+        & attacker .~ alternate (cs'' ^. attacker)
+        & one . fplayerState . board .~ clearDeath (cs'' ^. one . fplayerState . board)
+        & two . fplayerState . board .~ clearDeath (cs'' ^. two . fplayerState . board)
     history = map extractBoards [cs, cs'] ++ [extractBoards cs'' | not (null snapshots)] ++ [extractBoards cs''']
 
--- handleDeaths is recursive because certain deathrattles cause other minions to die.
--- deathrattles are always handled in the order the minion died (and left-to-right on tie)
 handleDeaths :: CombatState -> (CombatState, CombatHistory)
 handleDeaths cs =
   if null (prepareDeathrattles cs)
@@ -92,7 +99,7 @@ handleDeaths cs =
     (cs', states) = mapAccumL (\cs' (fighter, id, eff) -> (interpCombatEffect (CombatEffectContext cs' fighter id) eff, cs')) cs (prepareDeathrattles cs)
     histories = map extractBoards (tail states) -- be rid of the head, which is the original `cs`
     prepareDeathrattles :: CombatState -> [(Fighter, MinionID, CardEffect)]
-    prepareDeathrattles = undefined
+    prepareDeathrattles cs = [] -- TODO: implement
 
 extractBoards :: CombatState -> (Board, Board)
 extractBoards cs = (cs ^. one . fplayerState . board, cs ^. two . fplayerState . board)
@@ -132,17 +139,21 @@ trade :: AttackerIndex -> DefenderIndex -> CombatState -> CombatState
 trade ai di cs = cs'
   where
     (attackingBoard, defendingBoard) = case cs ^. attacker of
-      One -> (cs ^. one.fplayerState.board, cs ^. two.fplayerState.board)
-      Two -> (cs ^. two.fplayerState.board, cs ^. one.fplayerState.board)
-      
+      One -> (cs ^. one . fplayerState . board, cs ^. two . fplayerState . board)
+      Two -> (cs ^. two . fplayerState . board, cs ^. one . fplayerState . board)
+
     (attackingMinion, defendingMinion) = (attackingBoard !! ai, defendingBoard !! di)
     (attackingMinion', defendingMinion') = dmgOther (attackingMinion, defendingMinion)
-    
+
     cs' = case cs ^. attacker of
-      One -> cs & one.fplayerState.board .~ attackingBoard
-                & two.fplayerState.board .~ defendingBoard
-      Two -> cs & one.fplayerState.board .~ defendingBoard
-                & two.fplayerState.board .~ attackingBoard
+      One ->
+        cs
+          & one . fplayerState . board .~ attackingBoard
+          & two . fplayerState . board .~ defendingBoard
+      Two ->
+        cs
+          & one . fplayerState . board .~ defendingBoard
+          & two . fplayerState . board .~ attackingBoard
 
     dmgOther :: (CardInstance, CardInstance) -> (CardInstance, CardInstance)
     dmgOther (attacker, defender) =

@@ -1,29 +1,30 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- Controller: Handles input, game loop
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Controller (module Controller) where
 
 import Card (bigDumbo)
 import Combat (fight)
+import Control.Lens
+import Data.Map (fromList, (!))
 import qualified Data.Text.Lazy as TL
 import Debug.Trace (trace, traceM)
+import Effect
+import Effectful
+import Effectful.Dispatch.Dynamic
+import Effectful.State.Static.Local
 import GHC.Base (when)
 import Logic (execCommand, isGameOver, replenish)
 import Model
 import System.IO (hFlush, hReady, stdin, stdout)
-import Text.Parsec hiding (Error)
+import System.Random (newStdGen)
+import Text.Parsec hiding (Error, State)
 import Text.Parsec.String (Parser)
 import Text.Pretty.Simple (pPrint, pShow)
 import Text.Read (readMaybe)
 import View
-import Control.Lens
-import Effectful
-import Effectful.Error.Static
-import Effectful.State.Static.Local
-import Effectful.Dispatch.Dynamic
-import Effect
-import System.Random (newStdGen)
+
 -- START: Functions for ingesting terminal input as PlayerAction --
 -- Examples:
 -- b 1    -> Buy 1
@@ -84,86 +85,106 @@ playArgParser = do
 -- END --
 
 initGameState :: GameState
-initGameState = GameState {_playerState = defPlayerState, _aiState = tutorialAI, _turn = 0, _config = Config {_maxBoardSize = 7, _maxHandSize = 10}}
+initGameState =
+  GameState
+    { _playerMap = fromList [(0, mainPlayerState), (1, tutorialAI)],
+      _turn = 0,
+      _config = Config {_maxBoardSize = 7, _maxHandSize = 10, _maxCombatBoardSize = 7}
+    }
 
 tutorialAI :: PlayerState
-tutorialAI = mainPlayerState 
-  & board .~ [CardInstance bigDumbo 0]
-  & hp .~ 5
+tutorialAI =
+  mainPlayerState
+    & board .~ [CardInstance bigDumbo 0]
+    & hp .~ 5
 
 mainPlayerState :: PlayerState
 mainPlayerState =
-  PlayerState
+  defPlayerState
     { _tier = 1,
       _maxGold = 300, -- By `enter`ing into the first turn, this becomes 3 as required.
       _curGold = 2,
       _tierUpCost = 6, -- By `enter`ing into the first turn, this becomes 5 as required.
       _rerollCost = 1,
-      _shop = [],
-      _board = [],
-      _hand = [],
-      _frozen = False,
       _hp = 20,
       _armor = 0,
       _alive = True,
-      _phase = Recruit,
-      _idGen = IdGen 0
+      _phase = Recruit
     }
+
+mainPlayerId :: Int
+mainPlayerId = 0
+
+aiPlayerId :: Int
+aiPlayerId = 1
 
 runGame :: IO ()
 runGame = do
   gen <- newStdGen
-  _ <- runEff . runRNG gen $ loop $ return initGameState
+  _ <- runEff . runRNG gen . evalState initGameState $ loop
   putStrLn "Game Loop Completed."
   where
     -- Repeat Recruit and Combat until game over
-    loop :: (IOE :> es, RNG :> es) => Eff es GameState -> Eff es GameState
-    loop mgs = do
-      gs <- mgs
-      let gs' = gs & playerState.phase %~ \p -> if isGameOver gs then EndScreen else p
-      
-      case gs' ^. playerState.phase of
+    loop :: (IOE :> es, RNG :> es, State GameState :> es) => Eff es ()
+    loop = do
+      gs <- get
+      let mainPlayerPhase = (gs ^. playerMap) ! mainPlayerId ^. phase
+          gs' =
+            if isGameOver gs
+              then gs & playerMap . ix mainPlayerId . phase .~ EndScreen
+              else gs
+
+      case mainPlayerPhase of
         Recruit -> do
-          replenishedPlayer <- replenish (gs' ^. playerState)
-          replenishedAI <- replenish (gs' ^. aiState)
-          let gs'' = gs' & playerState .~ replenishedPlayer 
-                        & aiState .~ replenishedAI
-          recruitLoop gs'' >>= (loop . return)
-          
+          case (gs' ^. playerMap . at mainPlayerId, gs' ^. playerMap . at aiPlayerId) of
+            (Just mainPlayer, Just aiPlayer) -> do
+              replenishedPlayer <- replenish mainPlayer
+              replenishedAI <- replenish aiPlayer
+              let gs'' =
+                    gs'
+                      & playerMap . ix mainPlayerId .~ replenishedPlayer
+                      & playerMap . ix aiPlayerId .~ replenishedAI
+              put gs''
+              recruitLoop
+              loop
+            _ -> error "Invalid player IDs in game state"
         Combat -> do
-          (gs'', sim) <- fight Player AI gs'
+          sim <- fight (mainPlayerId, aiPlayerId)
           liftIO $ replayCombat 1 sim
           liftIO flushInput
           liftIO $ putStrLn "finished playing"
-          loop $ return $ gs'' & playerState.phase .~ Recruit 
-                              & aiState.phase .~ Recruit
-                              
+          gs'' <- get
+          put $
+            gs''
+              & playerMap . ix mainPlayerId . phase .~ Recruit
+              & playerMap . ix aiPlayerId . phase .~ Recruit
+          loop
         EndScreen -> do
-          liftIO $ putStrLn $ endScreenMsg gs'
-          return gs
-          
+          liftIO $ putStrLn $ endScreenMsg gs' mainPlayerId
         _ -> error "Other phases not yet implemented"
-
-recruitLoop :: (IOE :> es, RNG :> es) => GameState -> Eff es GameState
-recruitLoop gs
-  | (gs ^. playerState . phase) == Recruit = do
-      liftIO $ putStrLn $ fmtRecruit gs Player
+        
+recruitLoop :: (IOE :> es, RNG :> es, State GameState :> es) => Eff es ()
+recruitLoop = do
+  gs <- get
+  case (gs ^. playerMap) ! 0 ^. phase of
+    Recruit -> do
+      liftIO $ putStrLn $ fmtRecruit gs 0
       liftIO $ putStr "> "
       liftIO $ hFlush stdout
       input <- liftIO getLine
-      result <-
-        either
-          (return . Left)
-          (\cmd -> execCommand cmd gs Player)
-          (interp input)
-      case result of
-        Left err -> liftIO (putStrLn err) >> recruitLoop gs
-        Right gs' -> recruitLoop gs'
-  | otherwise = return gs
+      either
+        (\_ -> return ())
+        ( \cmd -> do
+            res <- execCommand cmd 0
+            maybe (return ()) (\s -> liftIO (putStrLn s) >> recruitLoop) res
+        )
+        (interp input)
+      recruitLoop
+    _ -> return ()
 
 flushInput :: IO ()
 flushInput = do
   ready <- hReady stdin
   when ready $ do
-    _ <- getChar -- Ignores commands entered (pressing actual enter key), but, this does not ignore partially typed, not-yet-entered text
+    _ <- getChar
     flushInput

@@ -2,9 +2,8 @@
 
 module Model (module Model) where
 
-import Prelude
 import Control.Lens
-import Control.Lens.TH
+import Data.Map (Map)
 
 {-
 Design Philosophy:
@@ -161,9 +160,10 @@ defPlayerState = PlayerState {
   _idGen = IdGen 0
 }
 
+type PlayerId = Int
+
 data GameState = GameState
-  { _playerState :: PlayerState,
-    _aiState :: PlayerState,
+  { _playerMap :: Map PlayerId PlayerState,
     _config :: Config,
     _turn :: Turn
   }

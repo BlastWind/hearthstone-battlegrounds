@@ -1,14 +1,12 @@
-
-
 module View (module View) where
 
 import Control.Concurrent (threadDelay)
+import Control.Lens
 import Control.Monad (forM_)
 import Data.List (intercalate)
+import Data.Map (foldrWithKey, keys, (!))
 import Debug.Trace (trace)
 import Model
-import Utils (selectPlayer)
-import Control.Lens
 
 rowWidth :: Int
 rowWidth = 142
@@ -25,8 +23,8 @@ renderCard ci = abbrev maxCardNameDisplayLength (show (ci ^. card . cardName)) +
 hBorder :: [Char]
 hBorder = "+" ++ replicate (rowWidth - 2) '-' ++ "+"
 
-endScreenMsg :: GameState -> String
-endScreenMsg gs = if gs ^. playerState . alive then "Victory! Ending now." else "You loss. Ending now."
+endScreenMsg :: GameState -> PlayerId -> String
+endScreenMsg gs pId = if (gs ^. playerMap) ! pId ^. alive then "Victory! Ending now." else "You loss. Ending now."
 
 -- fmtRecruit creates the following string. In the example below, the names and entries are maxed out.
 -- I.e., 15 characters is the longest permitting name (Rockpool Hunter and playeracgodman1 have 15 chars). Shop and board have 7 entries max, hand has 10 max.
@@ -48,8 +46,8 @@ endScreenMsg gs = if gs ^. playerState . alive then "Victory! Ending now." else 
 --  | Opps HP:  playeracgodman1: 35 + 5 | playeracgodman2: 26 + 3 | playeracgodman3: HP 27 + 0 | playeracgodman4: HP 27 + 3                     |
 --  |           playeracgodman5: 35 + 5 | playeracgodman6: 26 + 3 | playeracgodman7: HP 27 + 0                                                  |
 --  +-------------------------------------------------------------------------------------------------------------------------------------------+
-fmtRecruit :: GameState -> Player -> String
-fmtRecruit gs p =
+fmtRecruit :: GameState -> PlayerId -> String
+fmtRecruit gs pId =
   intercalate "\n" $
     filter
       (not . null)
@@ -73,7 +71,7 @@ fmtRecruit gs p =
         hBorder
       ]
   where
-    ps = selectPlayer p gs
+    ps = (gs ^. playerMap) ! pId
     shopCardNames = [(abbrev maxCardNameDisplayLength . show) (cardInstance ^. card . cardName) | cardInstance <- ps ^. shop]
     boardCardNames = [(abbrev maxCardNameDisplayLength . show) (cardInstance ^. card . cardName) | cardInstance <- ps ^. board]
     handCardNames = [(abbrev maxCardNameDisplayLength . show) (cardInstance ^. card . cardName) | cardInstance <- ps ^. hand]
@@ -84,7 +82,17 @@ fmtRecruit gs p =
     healthText = "Health: " ++ show (ps ^. hp)
     armorText = "Armor: " ++ show (ps ^. armor)
     goldText = "Gold: " ++ show (ps ^. curGold) ++ "/" ++ show (ps ^. maxGold)
-    oppInfoText = "Tutorial AI" ++ ": " ++ show (gs ^. aiState . hp) ++ " + " ++ show (gs ^. aiState . armor)
+    opps = filter (/= pId) (keys (gs ^. playerMap))
+    oppInfoText =
+      intercalate
+        " | "
+        [ show opp
+            ++ ": "
+            ++ show ((gs ^. playerMap) ! opp ^. hp)
+            ++ " + "
+            ++ show ((gs ^. playerMap) ! opp ^. armor)
+          | opp <- opps
+        ]
 
 abbrev :: Int -> String -> String
 abbrev maxLen s =
@@ -104,8 +112,10 @@ alignMid space s = leftPad ++ s ++ rightPad
 
 -- Replay the combat by rendering each "slice" of the combat state x seconds apart.
 type Seconds = Double
+
 replayCombat :: Seconds -> CombatSimulation -> IO ()
-replayCombat secs (CombatSimulation _ bs result) = do -- [CombatMove] is ignored for now. But, they are required to flavor the move UI (i.e., animate an attack require knowing who attacked who)
+replayCombat secs (CombatSimulation _ bs result) = do
+  -- [CombatMove] is ignored for now. But, they are required to flavor the move UI (i.e., animate an attack require knowing who attacked who)
   forM_ (map renderCombatBoardState bs) $ \s -> do
     putStrLn s
     threadDelay $ round $ secs * 1000
